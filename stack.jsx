@@ -1,12 +1,13 @@
+import { run } from 'uebersicht'
 // --- GENERATED FILE — do not edit. Edit widgets/*.jsx instead. ---
 
 // {{WIDGETS}}
 
 const SEP = "---SEP---";
 
-export const command = `${meetingCmd}; echo "${SEP}"; ${todoCmd}; echo "${SEP}"; ${audioCmd}; echo "${SEP}"; ${tzCmd}; echo "${SEP}"; ${ghPrCmd}`;
+export const command = `${meetingCmd}; echo "${SEP}"; ${todoCmd}; echo "${SEP}"; ${audioCmd}; echo "${SEP}"; ${tzCmd}; echo "${SEP}"; ${ghPrCmd}; echo "${SEP}"; ${claudeSessionsCmd}`;
 
-export const refreshFrequency = 5 * 60 * 1000;
+export const refreshFrequency = 60 * 1000;
 
 export const className = `
   bottom: 12px;
@@ -15,12 +16,17 @@ export const className = `
   z-index: 1;
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  a:hover, .clickable:hover { color: #6eb5ff !important; }
+  a:hover span, .clickable:hover span { color: #6eb5ff !important; }
 `;
 
 export const render = ({ output }) => {
   const parts = (output || "").split(SEP);
   return (
     <div style={s.stack}>
+      <div style={s.card}>
+        <ClaudeSessions output={(parts[5] || "").trim()} />
+      </div>
       <div style={s.card}>
         <Audio output={(parts[2] || "").trim()} />
       </div>
@@ -71,5 +77,7 @@ const s = {
   prRepo: { fontSize: "10px", color: "rgba(255,255,255,0.4)", display: "block" },
   prTitle: { fontSize: "12px", color: "rgba(255,255,255,0.85)", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   prMore: { fontSize: "11px", color: "rgba(255,255,255,0.35)", marginTop: "4px" },
+  ccRow: { marginBottom: "3px", cursor: "pointer" },
+  ccName: { fontSize: "12px", color: "rgba(255,255,255,0.85)", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   empty: { fontSize: "13px", color: "rgba(255,255,255,0.5)", wordBreak: "break-all" },
 };

@@ -22,7 +22,13 @@ const Audio = ({ output }) => {
 
   return (
     <div>
-      <div style={s.label}>AUDIO</div>
+      <div
+        className="clickable"
+        style={{ ...s.label, cursor: "pointer" }}
+        onClick={() => run(`open "x-apple.systempreferences:com.apple.Sound-Settings.extension"`)}
+      >
+        AUDIO I/O
+      </div>
       <div style={s.row}>
         <span style={s.icon}>🔈</span>
         <span style={s.device}>{data.output}</span>

@@ -24,6 +24,13 @@ export const render = ({ output }) => {
   const parts = (output || "").split(SEP);
   return (
     <div style={s.stack}>
+      <div
+        className="clickable"
+        style={s.refresh}
+        onClick={() => run(`osascript -e 'tell application "Übersicht" to refresh'`)}
+      >
+        ↻
+      </div>
       <div style={s.card}>
         <ClaudeSessions output={(parts[5] || "").trim()} />
       </div>
@@ -47,7 +54,8 @@ export const render = ({ output }) => {
 };
 
 const s = {
-  stack: { display: "flex", flexDirection: "column", gap: "8px", width: "169px" },
+  stack: { display: "flex", flexDirection: "column", gap: "8px", width: "169px", position: "relative" },
+  refresh: { position: "absolute", top: "-18px", right: "0", fontSize: "14px", color: "rgba(255,255,255,0.3)", cursor: "pointer" },
   card: {
     background: "rgba(30, 30, 30, 0.85)",
     backdropFilter: "blur(12px)",

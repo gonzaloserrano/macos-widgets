@@ -14,7 +14,7 @@ const Timezones = ({ output }) => {
 
   return (
     <div>
-      <div style={s.label}>TIMEZONES</div>
+      <div style={s.label}>TEAM TIMEZONES</div>
       {zones.map((z) => {
         const time = now.toLocaleTimeString("en-GB", {
           timeZone: z.tz,

@@ -18,7 +18,27 @@ const claudeSessionsCmd = `osascript -l JavaScript -e '
   } catch(e) {
     JSON.stringify([]);
   }
-' 2>/dev/null || echo '[]'`;
+' 2>/dev/null | python3 -c "
+import json, sys, subprocess, os
+data = json.load(sys.stdin)
+if data:
+    print(json.dumps(data))
+elif subprocess.run(['pgrep', '-qx', 'ghostty']).returncode == 0:
+    r = subprocess.run(['pgrep', '-x', 'claude'], capture_output=True, text=True)
+    pids = [p for p in r.stdout.strip().split(chr(10)) if p]
+    sessions, seen = [], set()
+    for pid in pids:
+        lr = subprocess.run(['lsof', '-a', '-d', 'cwd', '-Fn', '-p', pid], capture_output=True, text=True)
+        for line in lr.stdout.split(chr(10)):
+            if line.startswith('n/'):
+                name = os.path.basename(line[1:])
+                if name not in seen:
+                    seen.add(name)
+                    sessions.append({'idx': 0, 'name': name})
+    print(json.dumps(sessions))
+else:
+    print('[]')
+"`;
 
 const ClaudeSessions = ({ output }) => {
   let sessions;
@@ -41,7 +61,10 @@ const ClaudeSessions = ({ output }) => {
           key={i}
           className="clickable"
           style={s.ccRow}
-          onClick={() => run(`osascript -e 'tell application "Ghostty" to activate' -e 'tell application "System Events" to click radio button ${sess.idx} of tab group 1 of first window of process "ghostty"'`)}
+          onClick={() => run(sess.idx > 0
+            ? `osascript -e 'tell application "Ghostty" to activate' -e 'tell application "System Events" to click radio button ${sess.idx} of tab group 1 of first window of process "ghostty"'`
+            : `osascript -e 'tell application "Ghostty" to activate'`
+          )}
         >
           <span style={s.ccName}>{sess.name}</span>
         </div>

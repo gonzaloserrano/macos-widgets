@@ -15,7 +15,7 @@ build:
 
 deploy: build
 	@cp $(BUILD) "$(WIDGETS_DIR)/stack.jsx"
-	@osascript -e 'tell application "Übersicht" to refresh'
+	@osascript -e 'tell application id "tracesOf.Uebersicht" to refresh'
 	@echo "deployed"
 
 cd:

@@ -2,19 +2,19 @@
 
 [Übersicht](https://tracesof.net/uebersicht/) widgets for macOS.
 
-<img src="screenshot.png" width="250">
+<img src="screenshot-02.png" width="200">
 
 ## Widgets
 
-| Widget | File | Description |
-|--------|------|-------------|
-| Stack | `stack.jsx` | Container that vertically stacks all widgets into a single card column, runs their commands, and provides shared styles |
-| Claude Code | `widgets/claude-sessions.jsx` | Lists active Claude Code sessions in Ghostty; click to switch tab |
-| Audio I/O | `widgets/audio.jsx` | Shows current audio input and output devices; click label to open System Settings > Sound |
-| Timezones | `widgets/timezones.jsx` | Shows current time in PST, CST, EST, UTC, CET, and IST |
-| GitHub PRs | `widgets/github-prs.jsx` | Shows PRs awaiting your review via `gh` CLI with color-coded repo names |
-| TODO | `widgets/todo.jsx` | Displays contents of `~/TODO.txt` |
-| Next Meeting | `widgets/next-meeting.jsx` | Shows the next upcoming Google Calendar event with start time and countdown |
+| Widget | File | Description | Click action |
+|--------|------|-------------|--------------|
+| Stack | `stack.jsx` | Container that vertically stacks all widgets into a single card column, runs their commands, and provides shared styles | Refresh button re-runs all commands |
+| Claude Code | `widgets/claude-sessions.jsx` | Lists active Claude Code sessions in Ghostty | Header activates Ghostty; each session switches to its tab |
+| Audio I/O | `widgets/audio.jsx` | Shows current audio input and output devices | Opens System Settings > Sound |
+| Timezones | `widgets/timezones.jsx` | Shows current time in PST, CST, EST, UTC, CET, and IST | — |
+| GitHub PRs | `widgets/github-prs.jsx` | Shows PRs awaiting your review via `gh` CLI with color-coded repo names | Header opens GitHub PR review page; each PR opens its URL |
+| TODO | `widgets/todo.jsx` | Displays contents of `~/TODO.txt` | — |
+| Next Meeting | `widgets/next-meeting.jsx` | Shows the next upcoming Google Calendar event with start time and countdown | — |
 
 ## Dependencies
 

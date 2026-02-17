@@ -43,8 +43,13 @@ const NextMeeting = ({ output }) => {
 
   const todayDone = { ...s.title, color: "rgba(255,255,255,0.85)" };
 
+  const urgent = minsToNext < 5;
+  const wrapStyle = urgent
+    ? { margin: "-12px -14px", padding: "12px 14px", border: "2px solid #ff453a", borderRadius: "12px" }
+    : {};
+
   return (
-    <div>
+    <div style={wrapStyle}>
       <div style={s.label}>NEXT MEETING</div>
       {!isToday && <div style={todayDone}><span style={{ textDecoration: "line-through" }}>TODAY</span></div>}
       <div style={s.title}>{next.summary}</div>

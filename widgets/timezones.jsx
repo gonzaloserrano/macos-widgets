@@ -1,4 +1,4 @@
-const tzCmd = `date -u +%s`;
+const _tzCmd = `date -u +%s`;
 
 const zones = [
   { label: "PST", tz: "America/Los_Angeles" },
@@ -37,3 +37,5 @@ const Timezones = ({ output }) => {
     </div>
   );
 };
+
+widgets.push({ key: "tz", order: 2, ttl: 0, cmd: _tzCmd, Component: Timezones });

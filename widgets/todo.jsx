@@ -1,4 +1,4 @@
-const todoCmd = `cat ~/TODO.txt 2>/dev/null || echo ""`;
+const _todoCmd = `cat ~/TODO.txt 2>/dev/null || echo ""`;
 
 const Todo = ({ output }) => {
   const text = (output || "").trim();
@@ -10,3 +10,5 @@ const Todo = ({ output }) => {
     </div>
   );
 };
+
+widgets.push({ key: "todo", order: 5, ttl: 60, cmd: _todoCmd, Component: Todo });

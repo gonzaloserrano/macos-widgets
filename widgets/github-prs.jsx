@@ -1,4 +1,4 @@
-const ghPrCmd = `/opt/homebrew/bin/gh search prs --review-requested=@me --state=open --json title,repository,url 2>&1 | python3 -c "
+const _ghPrCmd = `/opt/homebrew/bin/gh search prs --review-requested=@me --state=open --json title,repository,url 2>&1 | python3 -c "
 import json, sys
 prs = json.load(sys.stdin)
 print(json.dumps({'count': len(prs), 'prs': [{'title': p['title'], 'repo': p['repository']['name'], 'url': p['url']} for p in prs[:7]]}))"`;
@@ -13,6 +13,8 @@ const repoColorMap = (prs) => {
 };
 
 const GithubPRs = ({ output }) => {
+  const [redacted, setRedacted] = React.useState(false);
+
   let data;
   try {
     data = JSON.parse(output);
@@ -25,13 +27,27 @@ const GithubPRs = ({ output }) => {
   }
 
   const colors = repoColorMap(data.prs);
+  const repos = [...new Set(data.prs.map((p) => p.repo))];
+  const redactMap = {};
+  repos.forEach((r, i) => { redactMap[r] = "repository " + (i + 1); });
+
+  const repo = (pr) => redacted ? redactMap[pr.repo] : pr.repo;
 
   return (
     <div>
-      <a href="https://github.com/pulls/review-requested" style={{ ...s.label, display: "block", textDecoration: "none", cursor: "pointer" }}>PR REVIEWS ({data.count})</a>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <a href="https://github.com/pulls/review-requested" style={{ ...s.label, display: "block", textDecoration: "none", cursor: "pointer", flex: 1 }}>PR REVIEWS ({data.count})</a>
+        <span
+          className="clickable"
+          style={{ fontSize: "14px", cursor: "pointer", color: redacted ? "#6eb5ff" : "rgba(255,255,255,0.25)" }}
+          onClick={() => setRedacted(!redacted)}
+        >
+          ◉
+        </span>
+      </div>
       {data.prs.map((pr, i) => (
         <a key={i} href={pr.url} style={s.prRow}>
-          <span style={{ ...s.prRepo, color: colors[pr.repo] }}>{pr.repo}</span>
+          <span style={{ ...s.prRepo, color: colors[pr.repo] }}>{repo(pr)}</span>
           <span style={s.prTitle}>{pr.title}</span>
         </a>
       ))}
@@ -41,3 +57,5 @@ const GithubPRs = ({ output }) => {
     </div>
   );
 };
+
+widgets.push({ key: "ghpr", order: 4, ttl: 300, cmd: _ghPrCmd, Component: GithubPRs });

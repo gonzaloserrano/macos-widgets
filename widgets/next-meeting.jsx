@@ -1,4 +1,4 @@
-const meetingCmd = `/opt/homebrew/bin/gog calendar events --from=now --days=2 --max=5 --json --no-input --account work 2>&1`;
+const _meetingCmd = `/opt/homebrew/bin/gog calendar events --from=now --days=2 --max=5 --json --no-input --account work 2>&1`;
 
 const formatTime = (date) =>
   date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -36,13 +36,17 @@ const NextMeeting = ({ output }) => {
 
   const next = events[0];
   const start = new Date(next.start.dateTime || next.start.date);
+  const isToday = start.toDateString() === now.toDateString();
   const tr = timeRemaining(start);
   const minsToNext = (start - now) / 60000;
   const after = minsToNext < 60 && events.length > 1 ? events[1] : null;
 
+  const todayDone = { ...s.title, color: "rgba(255,255,255,0.85)" };
+
   return (
     <div>
       <div style={s.label}>NEXT MEETING</div>
+      {!isToday && <div style={todayDone}><span style={{ textDecoration: "line-through" }}>TODAY</span></div>}
       <div style={s.title}>{next.summary}</div>
       <div style={s.meta}>
         <span>{formatTime(start)}</span>
@@ -58,3 +62,5 @@ const NextMeeting = ({ output }) => {
     </div>
   );
 };
+
+widgets.push({ key: "meeting", order: 6, ttl: 60, cmd: _meetingCmd, Component: NextMeeting });

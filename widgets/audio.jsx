@@ -1,4 +1,4 @@
-const audioCmd = `system_profiler SPAudioDataType -json 2>/dev/null | python3 -c "
+const _audioCmd = `system_profiler SPAudioDataType -json 2>/dev/null | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
 items = data.get('SPAudioDataType', [{}])[0].get('_items', [])
@@ -40,3 +40,5 @@ const Audio = ({ output }) => {
     </div>
   );
 };
+
+widgets.push({ key: "audio", order: 1, ttl: 10, cmd: _audioCmd, Component: Audio });

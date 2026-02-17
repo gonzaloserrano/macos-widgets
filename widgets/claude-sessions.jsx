@@ -1,4 +1,4 @@
-const claudeSessionsCmd = `osascript -l JavaScript -e '
+const _claudeSessionsCmd = `osascript -l JavaScript -e '
   try {
     var se = Application("System Events");
     var ghostty = se.processes.whose({name: "ghostty"})[0];
@@ -48,13 +48,20 @@ const ClaudeSessions = ({ output }) => {
     return <div style={s.empty}>Ghostty unavailable</div>;
   }
   if (!sessions.length) return <div style={s.empty}>No Claude sessions</div>;
+  const logo = (
+    <img src="claude-code-logo.png" width="18" style={{ display: "block", imageRendering: "pixelated" }} />
+  );
+
   return (
     <div>
-      <div
-        style={{ ...s.label, cursor: "pointer" }}
-        onClick={() => run(`osascript -e 'tell application "Ghostty" to activate'`)}
-      >
-        CLAUDE CODE ({sessions.length})
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+        <div
+          style={{ ...s.label, cursor: "pointer", marginBottom: 0 }}
+          onClick={() => run(`osascript -e 'tell application "Ghostty" to activate'`)}
+        >
+          CLAUDE CODE ({sessions.length})
+        </div>
+        {logo}
       </div>
       {sessions.map((sess, i) => (
         <div
@@ -72,3 +79,5 @@ const ClaudeSessions = ({ output }) => {
     </div>
   );
 };
+
+widgets.push({ key: "claude", order: 3, ttl: 10, cmd: _claudeSessionsCmd, Component: ClaudeSessions });

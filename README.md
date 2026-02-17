@@ -2,7 +2,7 @@
 
 [Übersicht](https://tracesof.net/uebersicht/) widgets for macOS.
 
-<img src="screenshot-02.png" width="200">
+<img src="screenshot-04.png">
 
 ## Widgets
 
@@ -13,6 +13,7 @@
 | Audio I/O | `widgets/audio.jsx` | Shows current audio input and output devices | Opens System Settings > Sound |
 | Timezones | `widgets/timezones.jsx` | Shows current time in PST, CST, EST, UTC, CET, and IST | — |
 | GitHub PRs | `widgets/github-prs.jsx` | Shows PRs awaiting your review via `gh` CLI with color-coded repo names | Header opens GitHub PR review page; each PR opens its URL |
+| Ping | `widgets/ping.jsx` | Pings gateway and 1.1.1.1, shows latency as big color-coded numbers | — |
 | TODO | `widgets/todo.jsx` | Displays contents of `~/TODO.txt` | — |
 | Next Meeting | `widgets/next-meeting.jsx` | Shows the next upcoming Google Calendar event with start time and countdown | — |
 

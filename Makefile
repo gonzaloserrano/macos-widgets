@@ -15,6 +15,7 @@ build:
 
 deploy: build
 	@cp $(BUILD) "$(WIDGETS_DIR)/stack.jsx"
+	@cp -f *.png "$(WIDGETS_DIR)/" 2>/dev/null || true
 	@osascript -e 'tell application id "tracesOf.Uebersicht" to refresh'
 	@echo "deployed"
 

@@ -1,13 +1,23 @@
-import { run } from 'uebersicht'
+import { React, run } from 'uebersicht'
 // --- GENERATED FILE — do not edit. Edit widgets/*.jsx instead. ---
+
+const widgets = [];
 
 // {{WIDGETS}}
 
+widgets.sort((a, b) => a.order - b.order);
+
 const SEP = "---SEP---";
 
-export const command = `${meetingCmd}; echo "${SEP}"; ${todoCmd}; echo "${SEP}"; ${audioCmd}; echo "${SEP}"; ${tzCmd}; echo "${SEP}"; ${ghPrCmd}; echo "${SEP}"; ${claudeSessionsCmd}`;
+const wrapCmd = (w) => {
+  if (!w.ttl) return w.cmd;
+  const f = `/tmp/ub_${w.key}`;
+  return `if [ -f "${f}" ] && [ $(($(date +%s) - $(stat -f%m "${f}"))) -lt ${w.ttl} ]; then cat "${f}"; else (${w.cmd}) | tee "${f}"; fi`;
+};
 
-export const refreshFrequency = 60 * 1000;
+export const command = widgets.map(w => wrapCmd(w)).join(`; echo "${SEP}"; `);
+
+export const refreshFrequency = 5 * 1000;
 
 export const className = `
   bottom: 12px;
@@ -31,24 +41,11 @@ export const render = ({ output }) => {
       >
         ↻
       </div>
-      <div style={s.card}>
-        <ClaudeSessions output={(parts[5] || "").trim()} />
-      </div>
-      <div style={s.card}>
-        <Audio output={(parts[2] || "").trim()} />
-      </div>
-      <div style={s.card}>
-        <Timezones output={(parts[3] || "").trim()} />
-      </div>
-      <div style={s.card}>
-        <GithubPRs output={(parts[4] || "").trim()} />
-      </div>
-      <div style={s.card}>
-        <Todo output={(parts[1] || "").trim()} />
-      </div>
-      <div style={s.card}>
-        <NextMeeting output={(parts[0] || "").trim()} />
-      </div>
+      {widgets.map((w, i) => (
+        <div key={w.key} style={s.card}>
+          <w.Component output={(parts[i] || "").trim()} />
+        </div>
+      ))}
     </div>
   );
 };

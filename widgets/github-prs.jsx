@@ -3,7 +3,7 @@ import json, sys
 prs = json.load(sys.stdin)
 print(json.dumps({'count': len(prs), 'prs': [{'title': p['title'], 'repo': p['repository']['name'], 'url': p['url']} for p in prs[:7]]}))"`;
 
-const repoColors = ["#c97a7a", "#c9b57a", "#7abf8e", "#7a9ec9", "#c9a07a", "#a87abf", "#7abfb3"];
+const repoColors = ["#ff6b6b", "#ffd93d", "#6bcb77", "#4d96ff", "#ff922b", "#cc5de8", "#20c997"];
 
 const repoColorMap = (prs) => {
   const repos = [...new Set(prs.map((p) => p.repo))];
@@ -47,7 +47,7 @@ const GithubPRs = ({ output }) => {
       </div>
       {data.prs.map((pr, i) => (
         <a key={i} href={pr.url} style={s.prRow}>
-          <span style={{ ...s.prRepo, color: colors[pr.repo] }}>{repo(pr)}</span>
+          <span style={s.prRepo}><span style={{ color: colors[pr.repo] }}>⦿</span> {repo(pr)}</span>
           <span style={s.prTitle}>{pr.title}</span>
         </a>
       ))}

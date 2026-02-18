@@ -54,7 +54,7 @@ const NextMeeting = ({ output }) => {
       {!isToday && <div style={todayDone}><span style={{ textDecoration: "line-through" }}>TODAY</span></div>}
       <div style={s.title}>{next.summary}</div>
       <div style={s.meta}>
-        <span>{formatTime(start)}</span>
+        <span style={{ color: tr.color }}>{formatTime(start)}</span>
         <span style={s.dot}>&middot;</span>
         <span style={{ ...s.remaining, color: tr.color }}>{tr.text}</span>
       </div>

@@ -30,8 +30,16 @@ const NextMeeting = ({ output }) => {
     return start && new Date(start) > now;
   });
 
+  const todayDone = { ...s.title, color: "rgba(255,255,255,0.85)" };
+
   if (events.length === 0) {
-    return <div style={s.empty}>No upcoming meetings</div>;
+    return (
+      <div>
+        <div style={s.label}>NEXT MEETING</div>
+        <div style={todayDone}><span style={{ textDecoration: "line-through" }}>TODAY</span></div>
+        <div style={s.empty}>No upcoming</div>
+      </div>
+    );
   }
 
   const next = events[0];
@@ -40,8 +48,6 @@ const NextMeeting = ({ output }) => {
   const tr = timeRemaining(start);
   const minsToNext = (start - now) / 60000;
   const after = minsToNext < 60 && events.length > 1 ? events[1] : null;
-
-  const todayDone = { ...s.title, color: "rgba(255,255,255,0.85)" };
 
   const urgent = minsToNext < 5;
   const wrapStyle = urgent

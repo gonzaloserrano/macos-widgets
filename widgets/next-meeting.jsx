@@ -16,7 +16,7 @@ const timeRemaining = (start) => {
   return { text: `in ${hrs}h ${remMins}m`, color };
 };
 
-const NextMeeting = ({ output }) => {
+const NextMeeting = ({ output, refresh }) => {
   let data;
   try {
     data = JSON.parse(output);
@@ -35,7 +35,7 @@ const NextMeeting = ({ output }) => {
   if (events.length === 0) {
     return (
       <div>
-        <div style={s.label}>NEXT MEETING</div>
+        <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>NEXT MEETING</div>
         <div style={todayDone}><span style={{ textDecoration: "line-through" }}>TODAY</span></div>
         <div style={s.empty}>No upcoming</div>
       </div>
@@ -56,7 +56,7 @@ const NextMeeting = ({ output }) => {
 
   return (
     <div style={wrapStyle}>
-      <div style={s.label}>NEXT MEETING</div>
+      <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>NEXT MEETING</div>
       {!isToday && <div style={todayDone}><span style={{ textDecoration: "line-through" }}>TODAY</span></div>}
       <div style={s.title}>{next.summary}</div>
       <div style={s.meta}>

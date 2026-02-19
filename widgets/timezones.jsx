@@ -2,19 +2,19 @@ const _tzCmd = `date -u +%s`;
 
 const zones = [
   { label: "PST", tz: "America/Los_Angeles" },
-  { label: "CST", tz: "America/Chicago" },
+
   { label: "EST", tz: "America/New_York" },
   { label: "UTC", tz: "UTC" },
   { label: "CET", tz: "Europe/Berlin", local: true },
   { label: "IST", tz: "Asia/Kolkata" },
 ];
 
-const Timezones = ({ output }) => {
+const Timezones = ({ output, refresh }) => {
   const now = new Date();
 
   return (
     <div>
-      <div style={s.label}>TEAM TIMEZONES</div>
+      <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>TEAM TIMEZONES</div>
       {zones.map((z) => {
         const time = now.toLocaleTimeString("en-GB", {
           timeZone: z.tz,

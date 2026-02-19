@@ -21,7 +21,7 @@ export const refreshFrequency = 5 * 1000;
 
 export const className = `
   bottom: 12px;
-  left: 12px;
+  left: 9px;
   position: fixed;
   z-index: 1;
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
@@ -30,8 +30,27 @@ export const className = `
   a:hover span, .clickable:hover span { color: #6eb5ff !important; }
 `;
 
+const WidgetCard = ({ widget, output }) => {
+  const [override, setOverride] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+
+  const refresh = () => {
+    setLoading(true);
+    run(`rm -f /tmp/ub_${widget.key}`).then(() =>
+      run(widget.cmd).then((out) => { setOverride(out.trim()); setLoading(false); })
+    );
+  };
+
+  return (
+    <div style={{ ...s.card, opacity: loading ? 0.4 : 1, transition: "opacity 0.15s" }}>
+      <widget.Component output={override || output} refresh={refresh} />
+    </div>
+  );
+};
+
 export const render = ({ output }) => {
   const parts = (output || "").split(SEP);
+
   return (
     <div style={s.stack}>
       <div
@@ -42,16 +61,14 @@ export const render = ({ output }) => {
         ↻
       </div>
       {widgets.map((w, i) => (
-        <div key={w.key} style={s.card}>
-          <w.Component output={(parts[i] || "").trim()} />
-        </div>
+        <WidgetCard key={w.key} widget={w} output={(parts[i] || "").trim()} />
       ))}
     </div>
   );
 };
 
 const s = {
-  stack: { display: "flex", flexDirection: "column", gap: "8px", width: "169px", position: "relative" },
+  stack: { display: "flex", flexDirection: "column", gap: "8px", width: "186px", position: "relative" },
   refresh: { position: "absolute", top: "-18px", right: "0", fontSize: "14px", color: "rgba(255,255,255,0.3)", cursor: "pointer" },
   card: {
     background: "rgba(30, 30, 30, 0.85)",

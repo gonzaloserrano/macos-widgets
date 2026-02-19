@@ -40,7 +40,7 @@ else:
     print('[]')
 "`;
 
-const ClaudeSessions = ({ output }) => {
+const ClaudeSessions = ({ output, refresh }) => {
   let sessions;
   try {
     sessions = JSON.parse(output);
@@ -56,8 +56,9 @@ const ClaudeSessions = ({ output }) => {
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
         <div
+          className="clickable"
           style={{ ...s.label, cursor: "pointer", marginBottom: 0 }}
-          onClick={() => run(`osascript -e 'tell application "Ghostty" to activate'`)}
+          onClick={refresh}
         >
           CLAUDE CODE ({sessions.length})
         </div>

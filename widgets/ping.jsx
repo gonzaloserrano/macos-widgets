@@ -25,7 +25,7 @@ print(json.dumps(result))
 const _pingHistory = [];
 const _PING_MAX_POINTS = 20;
 
-const Ping = ({ output }) => {
+const Ping = ({ output, refresh }) => {
   const [graphMode, setGraphMode] = React.useState(true);
 
   let data;
@@ -56,7 +56,7 @@ const Ping = ({ output }) => {
 
   const header = (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-      <div style={s.label}>PING</div>
+      <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>PING</div>
       <span
         className="clickable"
         style={{ fontSize: "9px", color: "rgba(255,255,255,0.35)", cursor: "pointer", lineHeight: 1 }}
@@ -102,7 +102,7 @@ const PingGraph = ({ history, gateway }) => {
   const AXIS_W = 22;
   const W = 141;
   const CHART_W = W - AXIS_W;
-  const H = 50;
+  const H = 38;
   const PAD = { top: 2, bottom: 2 };
   const gw = "#a8e6a3";
   const dns = "#6eb5ff";

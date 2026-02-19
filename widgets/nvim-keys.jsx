@@ -21,14 +21,14 @@ else:
     print('{}')
 "`;
 
-const NvimKeys = ({ output }) => {
+const NvimKeys = ({ output, refresh }) => {
   let data;
   try { data = JSON.parse(output); } catch { return <div style={s.empty}>nvim keys unavailable</div>; }
   if (!data.key) return <div style={s.empty}>No keymaps found</div>;
 
   return (
     <div>
-      <div style={s.label}>NVIM KEY</div>
+      <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>NVIM KEY</div>
       <div style={{ fontSize: "14px", fontWeight: 700, fontFamily: "SF Mono, Menlo, monospace", color: "#a8e6a3", marginBottom: "4px" }}>{data.key}</div>
       <div style={{ fontSize: "11px", fontFamily: "SF Mono, Menlo, monospace", color: "rgba(255,255,255,0.6)", wordWrap: "break-word", whiteSpace: "pre-wrap" }}>{data.cmd}</div>
     </div>

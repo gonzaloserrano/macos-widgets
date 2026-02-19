@@ -1,14 +1,15 @@
-const _ghPrCmd = `python3 -c "
+const _ghPrCmd = `python3 -c '
 import json, subprocess
-def query(args):
-    r = subprocess.run(['/opt/homebrew/bin/gh','search','prs']+args+['--json','title,repository,url'], capture_output=True, text=True)
-    prs = json.loads(r.stdout) if r.returncode == 0 else []
-    items = [{'title':p['title'],'repo':p['repository']['name'],'url':p['url']} for p in prs[:5]]
-    return {'total':len(prs),'prs':items}
-mine = query(['--author=@me','--state=open','--sort=created'])
-revs = query(['--review-requested=@me','--state=open'])
-print(json.dumps({'mine':mine,'reviews':revs}))
-"`;
+def query(q):
+    gql = "{search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:5){issueCount nodes{...on PullRequest{title url repository{name}reviewDecision}}}}"
+    r = subprocess.run(["/opt/homebrew/bin/gh","api","graphql","-f","query=" + gql], capture_output=True, text=True)
+    if r.returncode != 0: return {"total":0,"prs":[]}
+    s = json.loads(r.stdout)["data"]["search"]
+    return {"total":s["issueCount"],"prs":[{"title":n["title"],"repo":n["repository"]["name"],"url":n["url"],"approved":n.get("reviewDecision")=="APPROVED"} for n in s["nodes"]]}
+mine = query("is:pr is:open author:@me sort:created-desc")
+revs = query("is:pr is:open review-requested:@me")
+print(json.dumps({"mine":mine,"reviews":revs}))
+'`;
 
 const repoColors = ["#ff6b6b", "#ffd93d", "#6bcb77", "#4d96ff", "#ff922b", "#cc5de8", "#20c997"];
 
@@ -46,7 +47,7 @@ const GithubPRs = ({ output, refresh }) => {
   const renderPrs = (prs) => prs.map((pr, i) => (
     <a key={i} href={pr.url} style={s.prRow}>
       <span style={s.prRepo}><span style={{ color: colors[pr.repo] }}>⦿</span> {repo(pr)}</span>
-      <span style={s.prTitle}>{pr.title}</span>
+      <span style={s.prTitle}>{pr.approved ? "✓ " : ""}{pr.title}</span>
     </a>
   ));
 

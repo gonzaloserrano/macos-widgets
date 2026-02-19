@@ -10,7 +10,6 @@
 |--------|------|-------------|--------------|
 | Stack | `stack.jsx` | Container that vertically stacks all widgets into a single card column, runs their commands, and provides shared styles | Refresh button re-runs all commands |
 | Claude Code | `widgets/claude-sessions.jsx` | Lists active Claude Code sessions in Ghostty | Header activates Ghostty; each session switches to its tab |
-| Audio I/O | `widgets/audio.jsx` | Shows current audio input and output devices | Opens System Settings > Sound |
 | Timezones | `widgets/timezones.jsx` | Shows current time in PST, CST, EST, UTC, CET, and IST | — |
 | GitHub PRs | `widgets/github-prs.jsx` | Shows PRs awaiting your review via `gh` CLI with color-coded repo names | Header opens GitHub PR review page; each PR opens its URL |
 | Ping | `widgets/ping.jsx` | Pings gateway and 1.1.1.1, shows latency as big color-coded numbers | — |

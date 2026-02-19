@@ -2,7 +2,7 @@
 
 [Übersicht](https://tracesof.net/uebersicht/) widgets for macOS.
 
-<img src="screenshot-05.png">
+<img src="screenshot-06.png">
 
 ## Widgets
 
@@ -16,6 +16,7 @@
 | Ping | `widgets/ping.jsx` | Pings gateway and 1.1.1.1, shows latency as big color-coded numbers | — |
 | TODO | `widgets/todo.jsx` | Displays contents of `~/TODO.txt` | — |
 | Next Meeting | `widgets/next-meeting.jsx` | Shows the next upcoming Google Calendar event with start time and countdown | — |
+| Nvim Keys | `widgets/nvim-keys.jsx` | Shows a random neovim keymap from `~/.config/nvim/init.lua` every minute | — |
 
 ## Dependencies
 

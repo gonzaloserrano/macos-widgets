@@ -81,4 +81,4 @@ const ClaudeSessions = ({ output, refresh }) => {
   );
 };
 
-widgets.push({ key: "claude", order: 3, ttl: 10, cmd: _claudeSessionsCmd, Component: ClaudeSessions });
+// widgets.push({ key: "claude", order: 3, ttl: 10, cmd: _claudeSessionsCmd, Component: ClaudeSessions });

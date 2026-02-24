@@ -1,16 +1,37 @@
 const _ghPrCmd = `python3 -c '
 import json, subprocess
+def run_gql(gql):
+    r = subprocess.run(["/opt/homebrew/bin/gh","api","graphql","-f","query=" + gql], capture_output=True, text=True)
+    return json.loads(r.stdout) if r.returncode == 0 else None
 def query(q):
     gql = "{search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:5){issueCount nodes{...on PullRequest{title url repository{name}reviewDecision commits(last:1){nodes{commit{statusCheckRollup{state}}}}}}}}"
-    r = subprocess.run(["/opt/homebrew/bin/gh","api","graphql","-f","query=" + gql], capture_output=True, text=True)
-    if r.returncode != 0: return {"total":0,"prs":[]}
-    s = json.loads(r.stdout)["data"]["search"]
+    d = run_gql(gql)
+    if not d: return {"total":0,"prs":[]}
+    s = d["data"]["search"]
     def ci(n):
         try: return n["commits"]["nodes"][0]["commit"]["statusCheckRollup"]["state"]
         except: return None
     return {"total":s["issueCount"],"prs":[{"title":n["title"],"repo":n["repository"]["name"],"url":n["url"],"approved":n.get("reviewDecision")=="APPROVED","ci":ci(n)} for n in s["nodes"]]}
+def query_reviews(q):
+    gql = "{viewer{login} search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:5){issueCount nodes{...on PullRequest{title url repository{name}reviewDecision commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}} latestReviews(first:10){nodes{author{login}createdAt}}}}}}"
+    d = run_gql(gql)
+    if not d: return {"total":0,"prs":[]}
+    me = d["data"]["viewer"]["login"]
+    s = d["data"]["search"]
+    def ci(n):
+        try: return n["commits"]["nodes"][0]["commit"]["statusCheckRollup"]["state"]
+        except: return None
+    prs = []
+    for n in s["nodes"]:
+        last_commit = n.get("commits",{}).get("nodes",[{}])[0].get("commit",{}).get("committedDate","")
+        my_review = ""
+        for rv in n.get("latestReviews",{}).get("nodes",[]):
+            if rv.get("author",{}).get("login") == me: my_review = rv.get("createdAt","")
+        if my_review and last_commit and my_review >= last_commit: continue
+        prs.append({"title":n["title"],"repo":n["repository"]["name"],"url":n["url"],"approved":n.get("reviewDecision")=="APPROVED","ci":ci(n)})
+    return {"total":len(prs),"prs":prs}
 mine = query("is:pr is:open author:@me sort:created-desc")
-revs = query("is:pr is:open review-requested:@me")
+revs = query_reviews("is:pr is:open review-requested:@me")
 print(json.dumps({"mine":mine,"reviews":revs}))
 '`;
 

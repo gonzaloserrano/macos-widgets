@@ -13,7 +13,7 @@ def query(q):
         except: return None
     return {"total":s["issueCount"],"prs":[{"title":n["title"],"repo":n["repository"]["name"],"url":n["url"],"approved":n.get("reviewDecision")=="APPROVED","ci":ci(n)} for n in s["nodes"]]}
 def query_reviews(q):
-    gql = "{viewer{login} search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:5){issueCount nodes{...on PullRequest{title url repository{name}reviewDecision commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}} latestReviews(first:10){nodes{author{login}createdAt}}}}}}"
+    gql = "{viewer{login} search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:5){issueCount nodes{...on PullRequest{title url author{login} repository{name}reviewDecision commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}} latestReviews(first:10){nodes{author{login}createdAt}}}}}}"
     d = run_gql(gql)
     if not d: return {"total":0,"prs":[]}
     me = d["data"]["viewer"]["login"]
@@ -28,7 +28,7 @@ def query_reviews(q):
         for rv in n.get("latestReviews",{}).get("nodes",[]):
             if rv.get("author",{}).get("login") == me: my_review = rv.get("createdAt","")
         if my_review and last_commit and my_review >= last_commit: continue
-        prs.append({"title":n["title"],"repo":n["repository"]["name"],"url":n["url"],"approved":n.get("reviewDecision")=="APPROVED","ci":ci(n)})
+        prs.append({"title":n["title"],"repo":n["repository"]["name"],"url":n["url"],"author":n.get("author",{}).get("login",""),"approved":n.get("reviewDecision")=="APPROVED","ci":ci(n)})
     return {"total":len(prs),"prs":prs}
 mine = query("is:pr is:open author:@me sort:created-desc")
 revs = query_reviews("is:pr is:open review-requested:@me -author:timescale-automation")
@@ -68,9 +68,11 @@ const GithubPRs = ({ output, refresh }) => {
 
   const repo = (pr) => redacted ? redactMap[pr.repo] : pr.repo;
 
+  const ciColor = (ci) => ci === "SUCCESS" ? "#6bcb77" : ci === "PENDING" || ci === "EXPECTED" ? "#ffd93d" : ci === "FAILURE" || ci === "ERROR" ? "#ff6b6b" : "#555";
+
   const renderPrs = (prs) => prs.map((pr, i) => (
-    <a key={i} href={pr.url} style={{ ...s.prRow, borderLeft: "2px solid " + (pr.ci === "SUCCESS" ? "#6bcb77" : pr.ci === "PENDING" || pr.ci === "EXPECTED" ? "#ffd93d" : pr.ci === "FAILURE" || pr.ci === "ERROR" ? "#ff6b6b" : "#555"), paddingLeft: "6px", marginBottom: "5px" }}>
-      <span style={s.prRepo}><span style={{ color: colors[pr.repo] }}>⦿</span> {repo(pr)}</span>
+    <a key={i} href={pr.url} style={{ ...s.prRow, borderLeft: "2px solid " + ciColor(pr.ci), paddingLeft: "6px", marginBottom: "5px" }}>
+      <span style={s.prRepo}><span style={{ color: colors[pr.repo] }}>⦿</span> {repo(pr)}{pr.author ? " - @" + pr.author : ""}</span>
       <span style={s.prTitle}>{pr.approved ? "✓ " : ""}{pr.title}</span>
     </a>
   ));

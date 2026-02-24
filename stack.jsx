@@ -96,7 +96,7 @@ const s = {
   tzDay: { fontSize: "10px", color: "rgba(255,255,255,0.35)" },
   localRow: { background: "rgba(255,255,255,0.08)", borderRadius: "4px", padding: "2px 4px", margin: "0 -4px" },
   prRow: { marginBottom: "4px", display: "block", textDecoration: "none", cursor: "pointer" },
-  prRepo: { fontSize: "10px", color: "rgba(255,255,255,0.55)", display: "block" },
+  prRepo: { fontSize: "10px", color: "rgba(255,255,255,0.55)", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   prTitle: { fontSize: "12px", color: "rgba(255,255,255,0.85)", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   prMore: { fontSize: "11px", color: "rgba(255,255,255,0.35)", marginTop: "4px" },
   ccRow: { marginBottom: "3px", cursor: "pointer" },

@@ -74,4 +74,4 @@ const NextMeeting = ({ output, refresh }) => {
   );
 };
 
-widgets.push({ key: "meeting", order: 6, ttl: 60, cmd: _meetingCmd, Component: NextMeeting });
+widgets.push({ key: "meeting", order: 3, ttl: 60, cmd: _meetingCmd, Component: NextMeeting });

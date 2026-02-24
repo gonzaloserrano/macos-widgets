@@ -4,7 +4,6 @@ const zones = [
   { label: "PST", tz: "America/Los_Angeles" },
 
   { label: "EST", tz: "America/New_York" },
-  { label: "UTC", tz: "UTC" },
   { label: "CET", tz: "Europe/Berlin", local: true },
   { label: "IST", tz: "Asia/Kolkata" },
 ];

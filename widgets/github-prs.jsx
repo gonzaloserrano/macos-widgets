@@ -13,7 +13,7 @@ def query(q):
         except: return None
     return {"total":s["issueCount"],"prs":[{"title":n["title"],"repo":n["repository"]["name"],"url":n["url"],"approved":n.get("reviewDecision")=="APPROVED","ci":ci(n)} for n in s["nodes"]]}
 def query_reviews(q):
-    gql = "{viewer{login} search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:5){issueCount nodes{...on PullRequest{title url author{login} repository{name}reviewDecision commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}} latestReviews(first:10){nodes{author{login}createdAt}}}}}}"
+    gql = "{viewer{login} search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:5){issueCount nodes{...on PullRequest{title url author{login} repository{name isArchived}reviewDecision commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}} latestReviews(first:10){nodes{author{login}createdAt}}}}}}"
     d = run_gql(gql)
     if not d: return {"total":0,"prs":[]}
     me = d["data"]["viewer"]["login"]
@@ -23,6 +23,7 @@ def query_reviews(q):
         except: return None
     prs = []
     for n in s["nodes"]:
+        if n.get("repository",{}).get("isArchived"): continue
         last_commit = n.get("commits",{}).get("nodes",[{}])[0].get("commit",{}).get("committedDate","")
         my_review = ""
         for rv in n.get("latestReviews",{}).get("nodes",[]):
@@ -31,7 +32,7 @@ def query_reviews(q):
         prs.append({"title":n["title"],"repo":n["repository"]["name"],"url":n["url"],"author":n.get("author",{}).get("login",""),"approved":n.get("reviewDecision")=="APPROVED","ci":ci(n)})
     return {"total":len(prs),"prs":prs}
 mine = query("is:pr is:open author:@me sort:created-desc")
-revs = query_reviews("is:pr is:open review-requested:@me -author:timescale-automation -author:app/github-actions")
+revs = query_reviews("is:pr is:open draft:false review-requested:@me -author:timescale-automation -author:app/github-actions")
 print(json.dumps({"mine":mine,"reviews":revs}))
 '`;
 

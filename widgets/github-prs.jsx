@@ -47,6 +47,7 @@ const repoColorMap = (prs) => {
 
 const GithubPRs = ({ output, refresh }) => {
   const [redacted, setRedacted] = React.useState(false);
+  const [collapsed, setCollapsed] = React.useState(false);
 
   let mine = { total: 0, prs: [] }, reviews = { total: 0, prs: [] };
   try {
@@ -78,29 +79,38 @@ const GithubPRs = ({ output, refresh }) => {
     </a>
   ));
 
+  const summary = [mine.total > 0 && `${mine.total} mine`, reviews.total > 0 && `${reviews.total} review`].filter(Boolean).join(", ");
+
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <div className="clickable" style={{ ...s.label, cursor: "pointer", flex: 1 }} onClick={refresh}>GITHUB PRs</div>
+    <div style={{ position: "relative" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        <div className="clickable" style={{ ...s.label, cursor: "pointer", flex: 1, marginBottom: 0 }} onClick={refresh}>GITHUB PRs{collapsed ? ` · ${summary}` : ""}</div>
         <span
           className="clickable"
-          style={{ fontSize: "14px", cursor: "pointer", color: redacted ? "#6eb5ff" : "rgba(255,255,255,0.25)" }}
+          style={{ fontSize: "12px", cursor: "pointer", color: redacted ? "#6eb5ff" : "rgba(255,255,255,0.2)", lineHeight: "1" }}
           onClick={() => setRedacted(!redacted)}
-        >
-          ◉
-        </span>
+        >◉</span>
+        <span
+          className="clickable"
+          style={{ fontSize: "12px", cursor: "pointer", color: "rgba(255,255,255,0.25)", lineHeight: "1" }}
+          onClick={() => setCollapsed(!collapsed)}
+        >{collapsed ? "▹" : "▿"}</span>
       </div>
-      {mine.total > 0 && (
-        <div>
-          <div className="clickable" style={{ ...s.label, marginTop: "2px", fontSize: "9px", cursor: "pointer" }} onClick={() => run('open https://github.com/pulls')}>MY PRs ({mine.total})</div>
-          {renderPrs(mine.prs)}
-        </div>
-      )}
-      {reviews.total > 0 && (
-        <div>
-          <div className="clickable" style={{ ...s.label, marginTop: mine.total > 0 ? "15px" : "2px", fontSize: "9px", cursor: "pointer" }} onClick={() => run('open https://github.com/pulls/review-requested')}>TO REVIEW ({reviews.total})</div>
-          {renderPrs(reviews.prs)}
-        </div>
+      {!collapsed && (
+        <>
+          {mine.total > 0 && (
+            <div>
+              <div className="clickable" style={{ ...s.label, marginTop: "2px", fontSize: "9px", cursor: "pointer" }} onClick={() => run('open https://github.com/pulls')}>MY PRs ({mine.total})</div>
+              {renderPrs(mine.prs)}
+            </div>
+          )}
+          {reviews.total > 0 && (
+            <div>
+              <div className="clickable" style={{ ...s.label, marginTop: mine.total > 0 ? "15px" : "2px", fontSize: "9px", cursor: "pointer" }} onClick={() => run('open https://github.com/pulls/review-requested')}>TO REVIEW ({reviews.total})</div>
+              {renderPrs(reviews.prs)}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

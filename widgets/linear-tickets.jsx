@@ -50,6 +50,8 @@ const ticketNum = (id) => {
 };
 
 const LinearTickets = ({ output, refresh }) => {
+  const [collapsed, setCollapsed] = React.useState(false);
+
   const label = (
     <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>LINEAR</div>
   );
@@ -66,11 +68,18 @@ const LinearTickets = ({ output, refresh }) => {
   if (!tickets.length) return <div>{label}<div style={s.empty}>No tickets</div></div>;
 
   return (
-    <div>
-      <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>
-        LINEAR ({tickets.length})
+    <div style={{ position: "relative" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        <div className="clickable" style={{ ...s.label, cursor: "pointer", flex: 1, marginBottom: 0 }} onClick={refresh}>
+          LINEAR ({tickets.length})
+        </div>
+        <span
+          className="clickable"
+          style={{ fontSize: "12px", cursor: "pointer", color: "rgba(255,255,255,0.25)", lineHeight: "1" }}
+          onClick={() => setCollapsed(!collapsed)}
+        >{collapsed ? "▹" : "▿"}</span>
       </div>
-      {tickets.map((t, i) => {
+      {!collapsed && tickets.map((t, i) => {
         const st = stateFor(t);
         return (
           <a key={i} href={t.url} style={{ ...s.prRow, display: "flex", alignItems: "center", gap: "5px", marginBottom: "3px" }}>

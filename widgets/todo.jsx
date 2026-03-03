@@ -20,4 +20,4 @@ const Todo = ({ output, refresh }) => {
   );
 };
 
-widgets.push({ key: "todo", order: 5, ttl: 60, cmd: _todoCmd, Component: Todo });
+widgets.push({ key: "todo", order: 3.5, ttl: 60, cmd: _todoCmd, Component: Todo });

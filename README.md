@@ -9,13 +9,15 @@
 | Widget | File | Description | Click action |
 |--------|------|-------------|--------------|
 | Stack | `stack.jsx` | Container that vertically stacks all widgets into a single card column, runs their commands, and provides shared styles | Refresh button re-runs all commands |
-| Claude Code | `widgets/claude-sessions.jsx` | Lists active Claude Code sessions in Ghostty | Header activates Ghostty; each session switches to its tab |
-| Timezones | `widgets/timezones.jsx` | Shows current time in PST, CST, EST, UTC, CET, and IST | — |
-| GitHub PRs | `widgets/github-prs.jsx` | Shows your open PRs and PRs awaiting your review (max 5 each) via `gh` CLI with color-coded repo names | Header opens GitHub PRs page; each PR opens its URL |
+| Claude Skill | `widgets/claude-skills.jsx` | Shows a random Claude Code skill from `~/.claude/skills/` with official badge | Header refreshes to show a new skill |
+| Claude Code | `widgets/claude-sessions.jsx` | Lists active Claude Code sessions in Ghostty (disabled) | Header activates Ghostty; each session switches to its tab |
+| Nvim Keymap | `widgets/nvim-keys.jsx` | Shows a random neovim keymap from `~/.config/nvim/init.lua` every minute | Header refreshes to show a new keymap |
 | Ping | `widgets/ping.jsx` | Pings gateway and 1.1.1.1, shows latency as big color-coded numbers | — |
-| TODO | `widgets/todo.jsx` | Displays contents of `~/TODO.txt` | — |
+| Timezones | `widgets/timezones.jsx` | Shows current time in PST, CST, EST, UTC, CET, and IST | — |
 | Next Meeting | `widgets/next-meeting.jsx` | Shows the next upcoming Google Calendar event with start time and countdown | — |
-| Nvim Keys | `widgets/nvim-keys.jsx` | Shows a random neovim keymap from `~/.config/nvim/init.lua` every minute | — |
+| TODO | `widgets/todo.jsx` | Displays contents of `~/TODO.txt` | Opens `~/TODO.txt` |
+| GitHub PRs | `widgets/github-prs.jsx` | Shows your open PRs and PRs awaiting your review (max 5 each) via `gh` CLI with color-coded repo names. Redact toggle hides repo/PR names | Header opens GitHub PRs page; each PR opens its URL |
+| Linear | `widgets/linear-tickets.jsx` | Shows assigned Linear tickets sorted by priority with state icons. Redact toggle hides ticket titles | Each ticket opens its Linear URL |
 
 ## Dependencies
 
@@ -35,5 +37,6 @@ Each widget is a separate file in `widgets/`. The `stack.jsx` template contains 
 ## Usage
 
 ```
-make deploy
+make deploy        # build and deploy to Übersicht
+make screenshot    # capture widget area to screenshot-XX.png
 ```

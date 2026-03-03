@@ -50,6 +50,7 @@ const ticketNum = (id) => {
 };
 
 const LinearTickets = ({ output, refresh }) => {
+  const [redacted, setRedacted] = React.useState(false);
   const [collapsed, setCollapsed] = React.useState(false);
 
   const label = (
@@ -67,12 +68,19 @@ const LinearTickets = ({ output, refresh }) => {
 
   if (!tickets.length) return <div>{label}<div style={s.empty}>No tickets</div></div>;
 
+  const redactTitle = (t, i) => redacted ? "ticket " + (i + 1) : t.title;
+
   return (
     <div style={{ position: "relative" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
         <div className="clickable" style={{ ...s.label, cursor: "pointer", flex: 1, marginBottom: 0 }} onClick={refresh}>
           LINEAR ({tickets.length})
         </div>
+        <span
+          className="clickable"
+          style={{ fontSize: "12px", cursor: "pointer", color: redacted ? "#6eb5ff" : "rgba(255,255,255,0.2)", lineHeight: "1" }}
+          onClick={() => setRedacted(!redacted)}
+        >◉</span>
         <span
           className="clickable"
           style={{ fontSize: "12px", cursor: "pointer", color: "rgba(255,255,255,0.25)", lineHeight: "1" }}
@@ -84,7 +92,7 @@ const LinearTickets = ({ output, refresh }) => {
         return (
           <a key={i} href={t.url} style={{ ...s.prRow, display: "flex", alignItems: "center", gap: "5px", marginBottom: "3px" }}>
             <span style={{ fontSize: "11px", color: st.color, width: "12px", textAlign: "center", flexShrink: 0 }}>{st.icon}</span>
-            <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.85)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</span>
+            <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.85)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{redactTitle(t, i)}</span>
           </a>
         );
       })}

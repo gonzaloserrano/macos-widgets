@@ -1,4 +1,4 @@
-const _meetingCmd = `/opt/homebrew/bin/gog calendar events --from=now --days=2 --max=5 --json --no-input --account work 2>&1`;
+const _meetingCmd = `/opt/homebrew/bin/gog calendar events --from="$(date -v-5M -u +%Y-%m-%dT%H:%M:%SZ)" --days=2 --max=6 --json --no-input --account work 2>&1`;
 
 const formatTime = (date) =>
   date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -16,6 +16,34 @@ const timeRemaining = (start) => {
   return { text: `in ${hrs}h ${remMins}m`, color };
 };
 
+const getMeetingLink = (event) => {
+  if (event.hangoutLink) return event.hangoutLink;
+  const video = event.conferenceData?.entryPoints?.find(ep => ep.entryPointType === "video");
+  if (video?.uri) return video.uri;
+  return null;
+};
+
+const MeetingLinkIcon = ({ event }) => {
+  const link = getMeetingLink(event);
+  if (!link) return null;
+  const isZoom = link.includes("zoom.us");
+  return (
+    <span
+      className="clickable"
+      onClick={() => run(`open "${link}"`)}
+      style={{
+        fontSize: "10px", fontWeight: 700, cursor: "pointer",
+        color: isZoom ? "#2d8cff" : "#00ac47",
+        padding: "1px 4px", borderRadius: "3px",
+        border: `1px solid ${isZoom ? "#2d8cff" : "#00ac47"}`,
+        lineHeight: "1.2", flexShrink: 0,
+      }}
+    >
+      {isZoom ? "Z" : "M"}
+    </span>
+  );
+};
+
 const NextMeeting = ({ output, refresh }) => {
   let data;
   try {
@@ -25,9 +53,10 @@ const NextMeeting = ({ output, refresh }) => {
   }
 
   const now = new Date();
+  const GRACE_MS = 5 * 60 * 1000;
   const events = (data.events || []).filter((e) => {
     const start = e.start?.dateTime || e.start?.date;
-    return start && new Date(start) > now;
+    return start && new Date(start) > new Date(now.getTime() - GRACE_MS);
   });
 
   const todayDone = { ...s.title, color: "rgba(255,255,255,0.85)" };
@@ -58,7 +87,10 @@ const NextMeeting = ({ output, refresh }) => {
     <div style={wrapStyle}>
       <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>NEXT MEETING</div>
       {!isToday && <div style={todayDone}><span style={{ textDecoration: "line-through" }}>TODAY</span></div>}
-      <div style={s.title}>{next.summary}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
+        <div style={{ ...s.title, marginBottom: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{next.summary}</div>
+        <MeetingLinkIcon event={next} />
+      </div>
       <div style={s.meta}>
         <span style={{ color: tr.color }}>{formatTime(start)}</span>
         <span style={s.dot}>&middot;</span>

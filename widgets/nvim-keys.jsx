@@ -28,7 +28,7 @@ const NvimKeys = ({ output, refresh }) => {
 
   return (
     <div>
-      <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>NVIM KEYMAP</div>
+      <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>LEARN NVIM</div>
       <div style={{ fontSize: "14px", fontWeight: 700, fontFamily: "SF Mono, Menlo, monospace", color: "#a8e6a3", marginBottom: "4px" }}>{data.key}</div>
       <div style={{ fontSize: "11px", fontFamily: "SF Mono, Menlo, monospace", color: "rgba(255,255,255,0.6)", wordWrap: "break-word", whiteSpace: "pre-wrap" }}>{data.cmd}</div>
     </div>

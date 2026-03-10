@@ -98,7 +98,8 @@ const NextMeeting = ({ output, refresh }) => {
       </div>
       {after && (
         <div style={s.meta}>
-          <span style={s.afterLabel}>Then:</span>
+          <span style={s.afterLabel}>{formatTime(new Date(after.start.dateTime || after.start.date))}</span>
+          <span style={s.dot}>&middot;</span>
           <span style={s.afterTitle}>{after.summary}</span>
         </div>
       )}

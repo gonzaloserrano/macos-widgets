@@ -85,7 +85,7 @@ const s = {
   meta: { fontSize: "12px", color: "rgba(255,255,255,0.6)", display: "flex", alignItems: "center", gap: "6px" },
   dot: { opacity: 0.4 },
   remaining: { color: "#6eb5ff" },
-  afterLabel: { fontSize: "11px", color: "rgba(255,255,255,0.35)" },
+  afterLabel: { fontSize: "11px", color: "rgba(255,255,255,0.35)", whiteSpace: "nowrap", flexShrink: 0 },
   afterTitle: { fontSize: "11px", color: "rgba(255,255,255,0.55)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   pre: { fontSize: "12px", lineHeight: "1.4", whiteSpace: "pre-wrap", wordWrap: "break-word", fontFamily: "-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif", color: "rgba(255,255,255,0.85)", maxHeight: "200px", overflow: "hidden" },
   row: { display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "rgba(255,255,255,0.85)", marginBottom: "2px" },

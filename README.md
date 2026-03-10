@@ -2,7 +2,7 @@
 
 [Übersicht](https://tracesof.net/uebersicht/) widgets for macOS.
 
-<img src="screenshot-10.png" width="250">
+<img src="screenshot-13.png" width="250">
 
 ## Widgets
 

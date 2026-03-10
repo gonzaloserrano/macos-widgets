@@ -32,7 +32,7 @@ screenshot:
 	img = Image.open('/tmp/widgets_full.png'); \
 	w, h = img.size; \
 	pad = 20; \
-	dark = lambda x,y: all(c < 50 for c in img.getpixel((x,y))[:3]); \
+	dark = lambda x,y: all(c < 55 for c in img.getpixel((x,y))[:3]); \
 	row = lambda y: dark(100,y) and dark(300,y); \
 	top = next(y for y in range(h) if row(y)) - pad; \
 	bot = next(y for y in range(h-1,0,-1) if row(y)) + pad; \

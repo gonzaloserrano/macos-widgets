@@ -83,6 +83,33 @@ tips = [
 for key, desc in tips:
     items.append({'type': 'tip', 'key': key, 'desc': desc})
 
+envvars = [
+    ('CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false', 'Disable ghost-text follow-up suggestions'),
+    ('CLAUDE_CODE_EFFORT_LEVEL=low|med|high', 'Set reasoning effort level'),
+    ('CLAUDE_CODE_MAX_OUTPUT_TOKENS=64000', 'Max output tokens (default 32k)'),
+    ('ANTHROPIC_MODEL=...', 'Override default model for session'),
+    ('CLAUDE_CODE_SUBAGENT_MODEL=...', 'Override model for subagents'),
+    ('CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80', 'Context % to trigger compaction'),
+    ('CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING=1', 'Fixed thinking budget'),
+    ('CLAUDE_CODE_DISABLE_AUTO_MEMORY=1', 'Disable auto memory (MEMORY.md)'),
+    ('CLAUDE_CODE_DISABLE_1M_CONTEXT=1', 'Disable 1M context window'),
+    ('CLAUDE_CODE_DISABLE_FAST_MODE=1', 'Disable fast mode toggle'),
+    ('CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1', 'Multi-agent collaboration'),
+    ('ENABLE_LSP_TOOL=1', 'Code intelligence via LSP'),
+    ('CLAUDE_CODE_SIMPLE=1', 'Minimal prompt, only Bash/file tools'),
+    ('CLAUDE_CODE_SHELL_PREFIX=...', 'Wrap all bash cmds (audit/log)'),
+    ('CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR=1', 'Reset cwd after each Bash cmd'),
+    ('CLAUDE_CODE_TASK_LIST_ID=...', 'Share task list across sessions'),
+    ('CLAUDE_CODE_EXTRA_BODY=\\'{...}\\'', 'Merge JSON into API requests'),
+    ('CLAUDE_ENV_FILE=path', 'Source shell script before each Bash'),
+    ('CLAUDE_CODE_ENABLE_TELEMETRY=1', 'Enable OpenTelemetry tracing'),
+    ('CLAUDECODE=1', 'Auto-set in child shells (detect Claude)'),
+    ('CLAUDE_CODE_ACCESSIBILITY=1', 'No animations, screen-reader friendly'),
+    ('CLAUDE_CODE_FORCE_FULL_LOGO=1', 'Show full ASCII art on startup'),
+]
+for key, desc in envvars:
+    items.append({'type': 'tip', 'key': key, 'desc': desc})
+
 if items:
     print(json.dumps(random.choice(items)))
 else:

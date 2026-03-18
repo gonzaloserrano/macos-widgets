@@ -4,8 +4,8 @@ const todoFontSize = (line) => {
   const len = line.length;
   if (len <= 10) return "22px";
   if (len <= 20) return "18px";
-  if (len <= 25) return "15px";
-  return "13px";
+  if (len <= 30) return "16px";
+  return "15px";
 };
 
 const Todo = ({ output, refresh }) => {

@@ -1,21 +1,23 @@
 const _todoCmd = `cat ~/TODO.txt 2>/dev/null || echo ""`;
 
-const todoFontSize = (text) => {
-  const lines = text.split("\n");
-  const maxLen = Math.max(...lines.map(l => l.length));
-  if (lines.length === 1 && maxLen <= 10) return "22px";
-  if (lines.length === 1 && maxLen <= 20) return "18px";
-  if (lines.length <= 3 && maxLen <= 25) return "15px";
+const todoFontSize = (line) => {
+  const len = line.length;
+  if (len <= 10) return "22px";
+  if (len <= 20) return "18px";
+  if (len <= 25) return "15px";
   return "13px";
 };
 
 const Todo = ({ output, refresh }) => {
   const text = (output || "").trim();
   if (!text) return <div style={s.empty}>No TODOs</div>;
+  const lines = text.split("\n").filter(l => l.trim());
+  const firstLine = lines[0];
+  const count = lines.length;
   return (
     <div>
-      <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>TODO</div>
-      <pre className="clickable" style={{ ...s.pre, fontSize: todoFontSize(text), cursor: "pointer" }} onClick={() => run("open ~/TODO.txt")}>{text}</pre>
+      <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>TODO{count > 1 ? ` (${count})` : ""}</div>
+      <pre className="clickable" style={{ ...s.pre, fontSize: todoFontSize(firstLine), cursor: "pointer" }} onClick={() => run("open ~/TODO.txt")}>{firstLine}</pre>
     </div>
   );
 };

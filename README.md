@@ -14,7 +14,7 @@
 | Ping | `widgets/ping.jsx` | Pings gateway and 1.1.1.1, shows latency as big color-coded numbers | — |
 | Timezones | `widgets/timezones.jsx` | Shows current time in PST, CST, EST, UTC, CET, and IST | — |
 | Next Meeting | `widgets/next-meeting.jsx` | Shows the next Google Calendar event with time, countdown, and meeting link. Shows the following meeting's time below | Meeting link icon opens Google Meet/Zoom |
-| TODO | `widgets/todo.jsx` | Displays contents of `~/TODO.txt` | Opens `~/TODO.txt` |
+| TODO | `widgets/todo.jsx` | Displays first line of `~/TODO.txt`; title shows total line count | Opens `~/TODO.txt` |
 | GitHub PRs | `widgets/github-prs.jsx` | Shows your open PRs and PRs awaiting your review (max 5 each) via `gh` CLI with color-coded repo names. Redact toggle hides repo/PR names | Header opens GitHub PRs page; each PR opens its URL |
 | Linear | `widgets/linear-tickets.jsx` | Shows assigned Linear tickets sorted by priority with state icons. Redact toggle hides ticket titles | Each ticket opens its Linear URL |
 

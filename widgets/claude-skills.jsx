@@ -28,6 +28,37 @@ for p in glob.glob(os.path.join(skills_dir, '*/SKILL.md')):
         if len(desc) > 60: desc = desc[:57] + '...'
         items.append({'type': 'skill', 'name': fm['name'], 'desc': desc, 'official': official})
 
+plugins_dir = os.path.join(home, '.claude/plugins/marketplaces')
+seen_skills = set()
+if os.path.isdir(plugins_dir):
+    for entry in os.listdir(plugins_dir):
+        if entry.startswith('temp_') or re.search(r' \\d+$', entry):
+            continue
+        edir = os.path.join(plugins_dir, entry)
+        if not os.path.isdir(edir):
+            continue
+        for root, dirs, files in os.walk(edir):
+          for p in [os.path.join(root, f) for f in files if f == 'SKILL.md']:
+            fm = parse_frontmatter(p)
+            if fm and 'name' in fm:
+                key = entry + ':' + fm['name']
+                if key in seen_skills:
+                    continue
+                seen_skills.add(key)
+                desc = fm.get('description','')
+                if len(desc) > 60: desc = desc[:57] + '...'
+                items.append({'type': 'skill', 'name': key, 'desc': desc, 'official': True})
+
+builtins = [
+    ('loop', 'Run a prompt or slash command on a recurring interval'),
+    ('schedule', 'Create, update, list, or run scheduled remote agents'),
+    ('simplify', 'Review changed code for reuse, quality, and efficiency'),
+    ('update-config', 'Configure Claude Code harness via settings.json'),
+    ('keybindings-help', 'Customize keyboard shortcuts and keybindings'),
+]
+for name, desc in builtins:
+    items.append({'type': 'skill', 'name': name, 'desc': desc, 'official': True})
+
 shortcuts = [
     ('Ctrl+S', 'Stash current prompt'),
     ('Ctrl+G', 'Open prompt in external editor'),

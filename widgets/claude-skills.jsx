@@ -169,7 +169,14 @@ const ClaudeSkills = ({ output, refresh }) => {
   return (
     <div>
       <div className="clickable" style={{ ...s.label, cursor: "pointer", marginBottom: "4px" }} onClick={refresh}>LEARN CLAUDE</div>
-      <div style={{ fontSize: "13px", fontWeight: 700, fontFamily: "SF Mono, Menlo, monospace", color: "#c4a5f7", marginBottom: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{logo}/{data.name}</div>
+      {data.name.includes(':') ? (
+        <div style={{ marginBottom: "4px" }}>
+          <div style={{ fontSize: "10px", fontFamily: "SF Mono, Menlo, monospace", color: "rgba(196,165,247,0.65)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{logo}{data.name.split(':')[0]}</div>
+          <div style={{ fontSize: "13px", fontWeight: 700, fontFamily: "SF Mono, Menlo, monospace", color: "#c4a5f7", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>/{data.name.split(':')[1]}</div>
+        </div>
+      ) : (
+        <div style={{ fontSize: "13px", fontWeight: 700, fontFamily: "SF Mono, Menlo, monospace", color: "#c4a5f7", marginBottom: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{logo}/{data.name}</div>
+      )}
       <div style={{ fontSize: "11px", fontFamily: "SF Mono, Menlo, monospace", color: "rgba(255,255,255,0.55)", wordWrap: "break-word", whiteSpace: "pre-wrap", lineHeight: "1.35" }}>{data.desc}</div>
     </div>
   );

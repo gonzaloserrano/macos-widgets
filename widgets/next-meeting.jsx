@@ -5,7 +5,13 @@ const formatTime = (date) =>
 
 const timeRemaining = (start) => {
   const diffMs = start - new Date();
-  if (diffMs < 0) return { text: "now", color: "#ff453a" };
+  if (diffMs < 0) {
+    const elapsed = Math.abs(diffMs);
+    const mins = Math.floor(elapsed / 60000);
+    const secs = Math.floor((elapsed % 60000) / 1000);
+    const text = mins > 0 ? `-${mins}m ${secs}s` : `-${secs}s`;
+    return { text, color: "#ff453a" };
+  }
   const mins = Math.round(diffMs / 60000);
   if (mins < 1) return { text: "now", color: "#ff453a" };
   const color = mins < 5 ? "#ff453a" : mins < 15 ? "#ff9f0a" : mins < 60 ? "#ffd60a" : "#6eb5ff";
@@ -107,4 +113,4 @@ const NextMeeting = ({ output, refresh }) => {
   );
 };
 
-widgets.push({ key: "meeting", order: 3, ttl: 60, cmd: _meetingCmd, Component: NextMeeting });
+widgets.push({ key: "meeting", order: 3, ttl: 30, cmd: _meetingCmd, Component: NextMeeting });

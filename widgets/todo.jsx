@@ -14,7 +14,7 @@ const Todo = ({ output, refresh }) => {
   if (!text) return <div style={s.empty}>No TODOs</div>;
   const allLines = text.split("\n");
   const sepIdx = allLines.findIndex(l => l.trim() === "---");
-  const block = (sepIdx >= 0 ? allLines.slice(0, sepIdx) : allLines.slice(0, 1))
+  const block = (sepIdx >= 0 ? allLines.slice(0, sepIdx) : allLines)
     .filter(l => l.trim());
   const totalCount = allLines.filter(l => l.trim() && l.trim() !== "---").length;
   const blockText = block.join("\n");

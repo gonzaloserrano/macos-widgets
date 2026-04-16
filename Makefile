@@ -1,5 +1,6 @@
 WIDGETS_DIR := $(HOME)/Library/Application Support/Übersicht/widgets
-BUILD := build/stack.jsx
+BUILD_LEFT := build/stack.jsx
+BUILD_RIGHT := build/stackRight.jsx
 
 .PHONY: deploy build clean
 
@@ -11,10 +12,18 @@ build:
 		sed '/\/\/ {{WIDGETS}}/,$$d' stack.jsx; \
 		cat widgets/*.jsx; \
 		sed '1,/\/\/ {{WIDGETS}}/d' stack.jsx; \
-	} > $(BUILD)
+	} > $(BUILD_LEFT)
+	@if ls widgets-right/*.jsx 1>/dev/null 2>&1; then \
+		{ \
+			sed '/\/\/ {{WIDGETS}}/,$$d' stackRight.jsx; \
+			cat widgets-right/*.jsx; \
+			sed '1,/\/\/ {{WIDGETS}}/d' stackRight.jsx; \
+		} > $(BUILD_RIGHT); \
+	fi
 
 deploy: build
-	@cp $(BUILD) "$(WIDGETS_DIR)/stack.jsx"
+	@cp $(BUILD_LEFT) "$(WIDGETS_DIR)/stack.jsx"
+	@if [ -f $(BUILD_RIGHT) ]; then cp $(BUILD_RIGHT) "$(WIDGETS_DIR)/stackRight.jsx"; fi
 	@cp -f *.png "$(WIDGETS_DIR)/" 2>/dev/null || true
 	@osascript -e 'tell application id "tracesOf.Uebersicht" to refresh'
 	@echo "deployed"

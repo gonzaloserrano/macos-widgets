@@ -2,7 +2,7 @@
 
 [Übersicht](https://tracesof.net/uebersicht/) widgets for macOS.
 
-<img src="screenshot-13.png" width="250">
+<img src="screenshot-15.png" width="250">
 
 ## Widgets
 
@@ -13,7 +13,7 @@
 | Learn Claude | `widgets/claude-skills.jsx` | Shows a random Claude Code skill, keyboard shortcut, slash command, or env var | Header refreshes to show a new item |
 | Learn Nvim | `widgets/nvim-keys.jsx` | Shows a random neovim keymap from `~/.config/nvim/init.lua` | Header refreshes to show a new keymap |
 | Ping | `widgets/ping.jsx` | Pings gateway and 1.1.1.1, shows latency as big color-coded numbers | — |
-| Week | `widgets/week.jsx` | Single-row calendar view of the current week (Mon-Sun) with month header; today's day letter and date are shown in red, weekends dimmed | Header refreshes |
+| Week | `widgets/week.jsx` | Single-row calendar view of the current week (Mon-Sun). Month header carries a horizontal workday progress bar (9-18h, Wed ends at 16h) that shrinks right-to-left as the day elapses; in the final hour a red `Xm` label appears next to it. Today in red, weekends dimmed and bar hidden | Header refreshes |
 | Timezones | `widgets/timezones.jsx` | Shows current time in PST, CST, EST, UTC, CET, and IST | — |
 | Next Meeting | `widgets/next-meeting.jsx` | Shows the next Google Calendar event with time, countdown, and meeting link. Shows the following meeting's time below | Meeting link icon opens Google Meet/Zoom |
 | TODO | `widgets/todo.jsx` | Renders `~/TODO.txt` as a GitHub-flavored markdown checklist: `- [ ]` / `- [x]` lines become numbered rows (index starts at 0) with HTML checkboxes; checked items are struck through. Indented items (2-space steps) render as nested children with a `◦` marker. Markdown links `[text](url)` inside item text are clickable and open in the default browser. Lines after a `---` separator are hidden but counted in the title | Opens `~/TODO.txt`; links open their URL |

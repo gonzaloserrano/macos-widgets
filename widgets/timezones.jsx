@@ -38,4 +38,4 @@ const Timezones = ({ output, refresh }) => {
   );
 };
 
-widgets.push({ key: "tz", order: 2, ttl: 0, cmd: _tzCmd, Component: Timezones });
+widgets.push({ key: "tz", order: 1, ttl: 0, cmd: _tzCmd, Component: Timezones });

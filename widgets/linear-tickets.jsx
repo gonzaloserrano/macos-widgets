@@ -6,22 +6,26 @@ except: token = ""
 if not token:
     print(json.dumps({"error":"~/.linear-api-key not found"}))
 else:
-    q = """{ viewer { assignedIssues(
-        filter: { state: { type: { nin: ["completed","cancelled"] } } }
-        first: 20
-        orderBy: updatedAt
-    ) { nodes {
-        identifier title priority priorityLabel
-        state { name type }
-        url
-    }}}}"""
+    q = """{ viewer {
+        organization { urlKey }
+        assignedIssues(
+            filter: { state: { type: { nin: ["completed","cancelled"] } } }
+            first: 20
+            orderBy: updatedAt
+        ) { nodes {
+            identifier title priority priorityLabel
+            state { name type }
+            url
+        }}
+    }}"""
     req = Request("https://api.linear.app/graphql", json.dumps({"query":q}).encode(), {"Authorization":token,"Content-Type":"application/json"})
     try:
         r = urlopen(req)
         data = json.loads(r.read())
-        nodes = data["data"]["viewer"]["assignedIssues"]["nodes"]
+        viewer = data["data"]["viewer"]
+        nodes = viewer["assignedIssues"]["nodes"]
         nodes.sort(key=lambda n: (n["priority"] if n["priority"] > 0 else 99))
-        print(json.dumps(nodes))
+        print(json.dumps({"tickets": nodes, "orgKey": viewer["organization"]["urlKey"]}))
     except Exception as e:
         print(json.dumps({"error":str(e)}))
 '`;
@@ -57,16 +61,23 @@ const LinearTickets = ({ output, refresh }) => {
     <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>LINEAR</div>
   );
 
-  let tickets;
+  let tickets, orgKey;
   try {
     const data = JSON.parse(output);
     if (data.error) return <div>{label}<div style={s.empty}>{data.error}</div></div>;
-    tickets = data;
+    if (Array.isArray(data)) {
+      tickets = data;
+    } else {
+      tickets = data.tickets || [];
+      orgKey = data.orgKey;
+    }
   } catch {
     return <div>{label}<div style={s.empty}>{output || "Linear unavailable"}</div></div>;
   }
 
   if (!tickets.length) return <div>{label}<div style={s.empty}>No tickets</div></div>;
+
+  const createdUrl = orgKey ? `https://linear.app/${orgKey}/my-issues/created` : null;
 
   const redactTitle = (t, i) => redacted ? "ticket " + (i + 1) : t.title;
 
@@ -76,6 +87,14 @@ const LinearTickets = ({ output, refresh }) => {
         <div className="clickable" style={{ ...s.label, cursor: "pointer", flex: 1, marginBottom: 0 }} onClick={refresh}>
           LINEAR ({tickets.length})
         </div>
+        {createdUrl && (
+          <a
+            href={createdUrl}
+            className="clickable"
+            style={{ fontSize: "10px", color: "#6eb5ff", lineHeight: "1", textDecoration: "none", letterSpacing: "0.5px", textTransform: "uppercase" }}
+            title="Issues I created"
+          >mine ↗</a>
+        )}
         <span
           className="clickable"
           style={{ fontSize: "12px", cursor: "pointer", color: redacted ? "#6eb5ff" : "rgba(255,255,255,0.2)", lineHeight: "1" }}

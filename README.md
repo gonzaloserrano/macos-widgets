@@ -10,7 +10,7 @@
 |--------|------|-------------|--------------|
 | Stack (left) | `stack.jsx` | Container that vertically stacks all widgets into a single card column, runs their commands, and provides shared styles | Refresh button re-runs all commands |
 | Stack (right) | `stackRight.jsx` | Second vertical stack positioned at the bottom-right of the screen | Refresh button re-runs all commands |
-| Learn Claude | `widgets/claude-skills.jsx` | Shows a random Claude Code skill, keyboard shortcut, slash command, or env var | Header refreshes to show a new item |
+| Learn Claude | `widgets/claude-skills.jsx` | Shows a random Claude Code skill dynamically discovered from `~/.claude/skills` (manually installed) and `~/.claude/plugins/marketplaces` (plugin-shipped) | Header refreshes to show a new skill |
 | Learn Nvim | `widgets/nvim-keys.jsx` | Shows a random neovim keymap from `~/.config/nvim/init.lua` | Header refreshes to show a new keymap |
 | Ping | `widgets/ping.jsx` | Pings gateway and 1.1.1.1, shows latency as big color-coded numbers | — |
 | Timezones | `widgets/timezones.jsx` | Shows current time in PST, EST, UTC, CET, and IST | — |

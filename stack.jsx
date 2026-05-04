@@ -30,7 +30,7 @@ export const className = `
   a:hover span, .clickable:hover span { color: #6eb5ff !important; }
 `;
 
-const WidgetCard = ({ widget, output }) => {
+const WidgetCard = ({ widget, output, index }) => {
   const [override, setOverride] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
 
@@ -42,7 +42,7 @@ const WidgetCard = ({ widget, output }) => {
   };
 
   return (
-    <div style={{ ...s.card, opacity: loading ? 0.4 : 1, transition: "opacity 0.15s" }}>
+    <div style={{ ...s.card, position: "relative", zIndex: 1000 - index, opacity: loading ? 0.4 : 1, transition: "opacity 0.15s" }}>
       <widget.Component output={override || output} refresh={refresh} />
     </div>
   );
@@ -61,7 +61,7 @@ export const render = ({ output }) => {
         ↻
       </div>
       {widgets.map((w, i) => (
-        <WidgetCard key={w.key} widget={w} output={(parts[i] || "").trim()} />
+        <WidgetCard key={w.key} widget={w} output={(parts[i] || "").trim()} index={i} />
       ))}
     </div>
   );

@@ -3,7 +3,10 @@ const _weekCmd = `date +%s`;
 const _weekS = {
   header: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" },
   month: { fontSize: "11px", fontWeight: 700, color: "#ff453a", letterSpacing: "0.5px", cursor: "pointer", flexShrink: 0 },
-  bar: { flex: 1, height: "4px", borderRadius: "2px", background: "rgba(255,255,255,0.08)", position: "relative", overflow: "hidden" },
+  bar: (() => {
+    const mask = "linear-gradient(to right, #000 0, #000 calc(25% - 1px), transparent calc(25% - 1px), transparent calc(25% + 1px), #000 calc(25% + 1px), #000 calc(50% - 1px), transparent calc(50% - 1px), transparent calc(50% + 1px), #000 calc(50% + 1px), #000 calc(75% - 1px), transparent calc(75% - 1px), transparent calc(75% + 1px), #000 calc(75% + 1px), #000 100%)";
+    return { flex: 1, height: "4px", borderRadius: "2px", background: "rgba(255,255,255,0.18)", position: "relative", overflow: "hidden", maskImage: mask, WebkitMaskImage: mask };
+  })(),
   barFill: { position: "absolute", right: 0, top: 0, bottom: 0, background: "#ff453a", borderRadius: "2px", transition: "width 0.3s ease-out" },
   minsLeft: { fontSize: "10px", fontWeight: 600, color: "#ff453a", fontVariantNumeric: "tabular-nums", flexShrink: 0 },
   row: { display: "flex", marginBottom: "3px" },

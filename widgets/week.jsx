@@ -27,16 +27,20 @@ const _weekS = {
 };
 
 const Week = ({ output, refresh }) => {
+  const [expanded, setExpanded] = React.useState(false);
+
   const now = new Date();
   const daysSinceMonday = (now.getDay() + 6) % 7;
   const monday = new Date(now);
   monday.setDate(now.getDate() - daysSinceMonday);
 
-  const days = Array.from({ length: 7 }, (_, i) => {
+  const weekDays = (offsetWeeks) => Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
+    d.setDate(monday.getDate() + offsetWeeks * 7 + i);
     return d;
   });
+  const days = weekDays(0);
+  const futureWeeks = expanded ? [1, 2, 3].map(weekDays) : [];
 
   const labels = ["M", "T", "W", "T", "F", "S", "S"];
   const monthName = now.toLocaleString("en-US", { month: "long" }).toUpperCase();
@@ -57,9 +61,9 @@ const Week = ({ output, refresh }) => {
     : `${Math.floor(minsLeft / 60)}h ${minsLeft % 60}m left`;
 
   return (
-    <div>
+    <div style={{ cursor: "pointer" }} onClick={() => setExpanded(e => !e)}>
       <div style={_weekS.header}>
-        <div className="clickable" style={_weekS.month} onClick={refresh}>{monthName}</div>
+        <div style={_weekS.month} onClick={(e) => { e.stopPropagation(); refresh(); }}>{monthName}</div>
         {!todayIsOffDay && (
           <div style={_weekS.bar} title={tooltip}>
             <div style={{ ..._weekS.barFill, width: `${remaining * 100}%` }} />
@@ -83,20 +87,37 @@ const Week = ({ output, refresh }) => {
           );
         })}
       </div>
-      <div style={_weekS.row}>
-        {days.map((d, i) => {
-          const isToday = d.toDateString() === todayStr;
-          const isWeekend = i >= 5;
-          return (
-            <div key={i} style={_weekS.cell}>
-              <span style={{
-                ..._weekS.date,
-                ...(isWeekend && !isToday ? _weekS.dateDim : null),
-                ...(isToday ? _weekS.today : null),
-              }}>{d.getDate()}</span>
-            </div>
-          );
-        })}
+      <div>
+        <div style={_weekS.row}>
+          {days.map((d, i) => {
+            const isToday = d.toDateString() === todayStr;
+            const isWeekend = i >= 5;
+            return (
+              <div key={i} style={_weekS.cell}>
+                <span style={{
+                  ..._weekS.date,
+                  ...(isWeekend && !isToday ? _weekS.dateDim : null),
+                  ...(isToday ? _weekS.today : null),
+                }}>{d.getDate()}</span>
+              </div>
+            );
+          })}
+        </div>
+        {futureWeeks.map((week, wi) => (
+          <div key={wi} style={_weekS.row}>
+            {week.map((d, i) => {
+              const isWeekend = i >= 5;
+              return (
+                <div key={i} style={_weekS.cell}>
+                  <span style={{
+                    ..._weekS.date,
+                    ...(isWeekend ? _weekS.dateDim : null),
+                  }}>{d.getDate()}</span>
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );

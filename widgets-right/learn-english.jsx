@@ -26,7 +26,7 @@ const LearnEnglish = ({ output, refresh }) => {
   return (
     <div>
       <div className="clickable" style={{ ...s.label, cursor: "pointer", marginBottom: "4px" }} onClick={refresh}>LEARN ENGLISH</div>
-      <div style={{ fontSize: "13px", fontWeight: 600, fontFamily: "SF Mono, Menlo, monospace", color: "#7fd4e8", wordWrap: "break-word", whiteSpace: "pre-wrap", lineHeight: "1.4" }}>{data.phrase}</div>
+      <div className="clickable" style={{ fontSize: "13px", fontWeight: 600, fontFamily: "SF Mono, Menlo, monospace", color: "#7fd4e8", wordWrap: "break-word", whiteSpace: "pre-wrap", lineHeight: "1.4", cursor: "pointer" }} onClick={() => run("open ~/english.txt")}>{data.phrase}</div>
     </div>
   );
 };

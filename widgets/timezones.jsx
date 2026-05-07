@@ -11,11 +11,13 @@ const zones = [
 
 const Timezones = ({ output, refresh }) => {
   const now = new Date();
+  const [expanded, setExpanded] = React.useState(false);
+  const visible = expanded ? zones : zones.slice(-2);
 
   return (
     <div>
-      <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>TEAM TIMEZONES</div>
-      {zones.map((z) => {
+      <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={() => setExpanded(e => !e)}>TEAM TIMEZONES</div>
+      {visible.map((z) => {
         const time = now.toLocaleTimeString("en-GB", {
           timeZone: z.tz,
           hour: "2-digit",

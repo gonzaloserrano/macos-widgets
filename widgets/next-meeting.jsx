@@ -60,9 +60,14 @@ const NextMeeting = ({ output, refresh }) => {
 
   const now = new Date();
   const GRACE_MS = 5 * 60 * 1000;
+  const allOthersDeclined = (e) => {
+    const others = (e.attendees || []).filter((a) => !a.self && !a.resource);
+    return others.length > 0 && others.every((a) => a.responseStatus === "declined");
+  };
   const events = (data.events || []).filter((e) => {
     const start = e.start?.dateTime || e.start?.date;
-    return start && new Date(start) > new Date(now.getTime() - GRACE_MS);
+    if (!start || new Date(start) <= new Date(now.getTime() - GRACE_MS)) return false;
+    return !allOthersDeclined(e);
   });
 
   const todayDone = { ...s.title, color: "rgba(255,255,255,0.85)" };

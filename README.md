@@ -2,7 +2,7 @@
 
 [Übersicht](https://tracesof.net/uebersicht/) widgets for macOS.
 
-<img src="screenshot-16.png" width="250">
+<img src="screenshot-17.png" width="250">
 
 ## Widgets
 
@@ -12,6 +12,7 @@
 | Stack (right) | `stackRight.jsx` | Second vertical stack positioned at the bottom-right of the screen | Refresh button re-runs all commands |
 | Learn Claude | `widgets/claude-skills.jsx` | Shows a random Claude Code skill dynamically discovered from `~/.claude/skills` (manually installed) and `~/.claude/plugins/marketplaces` (plugin-shipped) | Header refreshes to show a new skill |
 | Learn Nvim | `widgets/nvim-keys.jsx` | Shows a random neovim keymap from `~/.config/nvim/init.lua` | Header refreshes to show a new keymap |
+| Learn English | `widgets/learn-english.jsx` | Shows a random phrase from `~/english.txt` (one phrase per line, `#` comments skipped). Seeded with business/work-focused English phrases and idioms | Header refreshes to show a new phrase |
 | Ping | `widgets/ping.jsx` | Pings gateway and 1.1.1.1, shows latency as big color-coded numbers | — |
 | Battery | `widgets/battery.jsx` | Single-row ring gauges for Mac, AirPods buds, AirPods case, Magic Keyboard, and mouse. Mac level/charging from `pmset`, Bluetooth devices from `system_profiler SPBluetoothDataType`, keyboard battery from `ioreg`. Icon glyphs are bundled PNGs (`battery-laptop.png`, `battery-airpods.png`, `battery-case.png`, `battery-keyboard.png`, `battery-mouse.png`). Ring color goes yellow under 50% and red under 25% (same `#ff453a` as the Week widget); charging shows a yellow ⚡ above the ring. Ring size auto-shrinks (28–42px) so 1–5 devices all fit in the row | Click anywhere on the row refreshes |
 | Timezones | `widgets/timezones.jsx` | Shows current time in PST, EST, UTC, CET, and IST | — |

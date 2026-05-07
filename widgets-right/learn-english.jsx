@@ -31,4 +31,4 @@ const LearnEnglish = ({ output, refresh }) => {
   );
 };
 
-widgets.push({ key: "english", order: -0.5, ttl: 60, cmd: _englishCmd, Component: LearnEnglish });
+widgets.push({ key: "english", order: 0, ttl: 60, cmd: _englishCmd, Component: LearnEnglish });

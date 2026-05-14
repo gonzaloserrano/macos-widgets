@@ -60,7 +60,7 @@ const Todo = ({ output, refresh }) => {
   return (
     <div>
       <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>TODO{totalCount > blockLines.length ? ` (${totalCount})` : ""}</div>
-      <div className="clickable" style={_todoS.list} onClick={() => run("open ~/TODO.txt")}>
+      <div style={_todoS.list} onClick={() => run("open ~/TODO.txt")}>
         {numbered.map((item, i) => (
           <div key={i} style={{ ..._todoS.row, marginLeft: `${item.depth * 10}px` }}>
             {item.label !== null

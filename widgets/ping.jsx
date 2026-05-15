@@ -54,12 +54,20 @@ const Ping = ({ output, refresh }) => {
     ? { title: "Show numbers", children: "123" }
     : { title: "Show graph", children: "▁▃▅" };
 
+  const gwColor = "#a8e6a3";
+  const dnsColor = "#6eb5ff";
+
   const header = (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-      <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>PING</div>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "8px" }}>
+      <div className="clickable" style={{ ...s.label, cursor: "pointer", lineHeight: 1 }} onClick={refresh}>PING</div>
+      <span style={{ fontSize: "11px", fontWeight: 500, lineHeight: 1, letterSpacing: "0.3px" }}>
+        <span style={{ color: gwColor }}>{fmt(data.gateway_ms)}ms</span>
+        <span style={{ color: "rgba(255,255,255,0.35)", margin: "0 4px" }}>/</span>
+        <span style={{ color: dnsColor }}>{fmt(data.dns_ms)}ms</span>
+      </span>
       <span
         className="clickable"
-        style={{ fontSize: "9px", color: "rgba(255,255,255,0.35)", cursor: "pointer", lineHeight: 1 }}
+        style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)", cursor: "pointer", lineHeight: 1 }}
         title={toggleIcon.title}
         onClick={() => setGraphMode(!graphMode)}
       >
@@ -102,8 +110,8 @@ const PingGraph = ({ history, gateway }) => {
   const AXIS_W = 22;
   const W = 141;
   const CHART_W = W - AXIS_W;
-  const H = 38;
-  const PAD = { top: 2, bottom: 2 };
+  const H = 46;
+  const PAD = { top: 6, bottom: 6 };
   const gw = "#a8e6a3";
   const dns = "#6eb5ff";
   const axisColor = "rgba(255,255,255,0.25)";
@@ -129,10 +137,6 @@ const PingGraph = ({ history, gateway }) => {
   const gwPath = toPath("gw");
   const dnsPath = toPath("dns");
 
-  const lastGw = history.length ? history[history.length - 1].gw : null;
-  const lastDns = history.length ? history[history.length - 1].dns : null;
-  const fmtLast = (ms) => (ms != null ? `${Math.round(ms)}` : "—");
-
   return (
     <div>
       <svg width={W} height={H} style={{ display: "block" }}>
@@ -141,16 +145,16 @@ const PingGraph = ({ history, gateway }) => {
           return (
             <g key={t}>
               <line x1={AXIS_W} y1={y} x2={W} y2={y} stroke={axisColor} strokeWidth="0.5" strokeDasharray="2,2" />
-              <text x={AXIS_W - 3} y={y + 3} textAnchor="end" fill={axisColor} fontSize="8">{t}</text>
+              <text x={AXIS_W - 3} y={y + 3} textAnchor="end" fill={axisColor} fontSize="9">{t}</text>
             </g>
           );
         })}
         {gwPath && <path d={gwPath} fill="none" stroke={gw} strokeWidth="1.5" strokeLinejoin="round" />}
         {dnsPath && <path d={dnsPath} fill="none" stroke={dns} strokeWidth="1.5" strokeLinejoin="round" />}
       </svg>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "2px" }}>
-        <span style={{ fontSize: "9px", color: gw }}>{gateway || "gw"} {fmtLast(lastGw)}ms</span>
-        <span style={{ fontSize: "9px", color: dns }}>1.1.1.1 {fmtLast(lastDns)}ms</span>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
+        <span style={{ fontSize: "9px", color: gw }}>{gateway || "gw"}</span>
+        <span style={{ fontSize: "9px", color: dns }}>1.1.1.1</span>
       </div>
     </div>
   );

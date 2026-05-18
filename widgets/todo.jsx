@@ -39,39 +39,70 @@ const _todoS = {
   checkbox: { margin: "2px 0 0", flexShrink: 0, accentColor: "#6eb5ff", width: "11px", height: "11px", cursor: "pointer" },
   text: { wordBreak: "break-word", minWidth: 0 },
   done: { textDecoration: "line-through", color: "rgba(255,255,255,0.4)" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" },
+  toggle: { fontSize: "10px", fontWeight: 600, letterSpacing: "0.5px", color: "rgba(255,255,255,0.45)", cursor: "pointer", padding: "0 2px" },
+  divider: { height: "1px", background: "rgba(255,255,255,0.08)", margin: "4px 0" },
 };
 
-const Todo = ({ output, refresh }) => {
-  const text = (output || "").trim();
-  if (!text) return <div style={s.empty}>No TODOs</div>;
-  const allLines = text.split("\n");
-  const sepIdx = allLines.findIndex(l => l.trim() === "---");
-  const blockLines = (sepIdx >= 0 ? allLines.slice(0, sepIdx) : allLines)
-    .filter(l => l.trim());
-  const totalCount = allLines.filter(l => l.trim() && l.trim() !== "---").length;
-  const items = blockLines.map(parseTodoLine);
+const _todoSplitParts = (lines) => {
+  const parts = [[]];
+  for (const l of lines) {
+    if (l.trim() === "---") { parts.push([]); continue; }
+    parts[parts.length - 1].push(l);
+  }
+  return parts.map(p => p.filter(l => l.trim()));
+};
 
+const _todoNumber = (items) => {
   let topIdx = 0;
-  const numbered = items.map(item => ({
+  return items.map(item => ({
     ...item,
     label: item.depth === 0 ? `${topIdx++}.` : null,
   }));
+};
+
+const _todoRow = (item, key) => (
+  <div key={key} style={{ ..._todoS.row, marginLeft: `${item.depth * 10}px` }}>
+    {item.label !== null
+      ? <span style={_todoS.idx}>{item.label}</span>
+      : <span style={_todoS.childMark}>◦</span>}
+    {item.checked !== null && (
+      <input type="checkbox" checked={item.checked} readOnly style={_todoS.checkbox} />
+    )}
+    <span style={{ ..._todoS.text, ...(item.checked ? _todoS.done : null) }}>{renderTodoText(item.text)}</span>
+  </div>
+);
+
+const Todo = ({ output, refresh }) => {
+  const [showLow, setShowLow] = React.useState(false);
+  const text = (output || "").trim();
+  if (!text) return <div style={s.empty}>No TODOs</div>;
+
+  const [visibleLines = [], lowLines = []] = _todoSplitParts(text.split("\n"));
+  const visibleItems = _todoNumber(visibleLines.map(parseTodoLine));
+  const lowItems = _todoNumber(lowLines.map(parseTodoLine));
+  const lowCount = lowItems.filter(i => i.label !== null).length;
 
   return (
     <div>
-      <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>TODO{totalCount > blockLines.length ? ` (${totalCount})` : ""}</div>
+      <div style={_todoS.header}>
+        <div className="clickable" style={{ ...s.label, cursor: "pointer", marginBottom: 0 }} onClick={refresh}>TODO</div>
+        {lowCount > 0 && (
+          <div
+            className="clickable"
+            style={_todoS.toggle}
+            onClick={(e) => { e.stopPropagation(); setShowLow(v => !v); }}
+          >{showLow ? `− ${lowCount}` : `+ ${lowCount}`}</div>
+        )}
+      </div>
       <div style={_todoS.list} onClick={() => run("open ~/TODO.txt")}>
-        {numbered.map((item, i) => (
-          <div key={i} style={{ ..._todoS.row, marginLeft: `${item.depth * 10}px` }}>
-            {item.label !== null
-              ? <span style={_todoS.idx}>{item.label}</span>
-              : <span style={_todoS.childMark}>◦</span>}
-            {item.checked !== null && (
-              <input type="checkbox" checked={item.checked} readOnly style={_todoS.checkbox} />
-            )}
-            <span style={{ ..._todoS.text, ...(item.checked ? _todoS.done : null) }}>{renderTodoText(item.text)}</span>
-          </div>
-        ))}
+        {visibleItems.map((item, i) => _todoRow(item, i))}
+        {showLow && lowItems.length > 0 && (
+          <React.Fragment>
+            <div style={_todoS.divider} />
+            {lowItems.map((item, i) => _todoRow(item, `low-${i}`))}
+          </React.Fragment>
+        )}
       </div>
     </div>
   );

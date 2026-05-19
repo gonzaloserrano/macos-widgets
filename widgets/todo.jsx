@@ -46,11 +46,11 @@ const _todoS = {
 
 const _todoSplitParts = (lines) => {
   const parts = [[]];
-  for (const l of lines) {
-    if (l.trim() === "---") { parts.push([]); continue; }
-    parts[parts.length - 1].push(l);
-  }
-  return parts.map(p => p.filter(l => l.trim()));
+  lines.forEach((raw, i) => {
+    if (raw.trim() === "---") { parts.push([]); return; }
+    parts[parts.length - 1].push({ raw, srcLine: i + 1 });
+  });
+  return parts.map(p => p.filter(x => x.raw.trim()));
 };
 
 const _todoNumber = (items) => {
@@ -61,46 +61,82 @@ const _todoNumber = (items) => {
   }));
 };
 
-const _todoRow = (item, key) => (
+const _todoRow = (item, key, onToggle) => (
   <div key={key} style={{ ..._todoS.row, marginLeft: `${item.depth * 10}px` }}>
     {item.label !== null
       ? <span style={_todoS.idx}>{item.label}</span>
       : <span style={_todoS.childMark}>◦</span>}
     {item.checked !== null && (
-      <input type="checkbox" checked={item.checked} readOnly style={_todoS.checkbox} />
+      <input
+        type="checkbox"
+        checked={item.checked}
+        onChange={() => onToggle(item)}
+        onClick={(e) => e.stopPropagation()}
+        style={_todoS.checkbox}
+      />
     )}
     <span style={{ ..._todoS.text, ...(item.checked ? _todoS.done : null) }}>{renderTodoText(item.text)}</span>
   </div>
 );
 
+const _todoFilterDone = (items) => {
+  const out = [];
+  let skipDepth = -1;
+  for (const item of items) {
+    if (skipDepth >= 0 && item.depth > skipDepth) continue;
+    skipDepth = -1;
+    if (item.checked === true) { skipDepth = item.depth; continue; }
+    out.push(item);
+  }
+  return out;
+};
+
 const Todo = ({ output, refresh }) => {
   const [showLow, setShowLow] = React.useState(false);
+  const [hideDone, setHideDone] = React.useState(false);
   const text = (output || "").trim();
   if (!text) return <div style={s.empty}>No TODOs</div>;
 
   const [visibleLines = [], lowLines = []] = _todoSplitParts(text.split("\n"));
-  const visibleItems = _todoNumber(visibleLines.map(parseTodoLine));
-  const lowItems = _todoNumber(lowLines.map(parseTodoLine));
+  const rawVisible = visibleLines.map(x => ({ ...parseTodoLine(x.raw), srcLine: x.srcLine }));
+  const rawLow = lowLines.map(x => ({ ...parseTodoLine(x.raw), srcLine: x.srcLine }));
+  const doneCount = [...rawVisible, ...rawLow].filter(i => i.checked === true).length;
+  const visibleItems = _todoNumber(hideDone ? _todoFilterDone(rawVisible) : rawVisible);
+  const lowItems = _todoNumber(hideDone ? _todoFilterDone(rawLow) : rawLow);
   const lowCount = lowItems.filter(i => i.label !== null).length;
+
+  const toggleItem = (item) => {
+    const newChar = item.checked ? " " : "x";
+    run(`sed -i '' '${item.srcLine}s/\\[[xX ]\\]/[${newChar}]/' ~/TODO.txt`).then(refresh);
+  };
 
   return (
     <div>
       <div style={_todoS.header}>
         <div className="clickable" style={{ ...s.label, cursor: "pointer", marginBottom: 0 }} onClick={refresh}>TODO</div>
-        {lowCount > 0 && (
-          <div
-            className="clickable"
-            style={_todoS.toggle}
-            onClick={(e) => { e.stopPropagation(); setShowLow(v => !v); }}
-          >{showLow ? `− ${lowCount}` : `+ ${lowCount}`}</div>
-        )}
+        <div style={{ display: "flex", gap: "6px" }}>
+          {doneCount > 0 && (
+            <div
+              className="clickable"
+              style={{ ..._todoS.toggle, ...(hideDone && { color: "#6eb5ff" }) }}
+              onClick={(e) => { e.stopPropagation(); setHideDone(v => !v); }}
+            >✓ {doneCount}</div>
+          )}
+          {lowCount > 0 && (
+            <div
+              className="clickable"
+              style={_todoS.toggle}
+              onClick={(e) => { e.stopPropagation(); setShowLow(v => !v); }}
+            >{showLow ? `− ${lowCount}` : `+ ${lowCount}`}</div>
+          )}
+        </div>
       </div>
       <div style={_todoS.list} onClick={() => run("open ~/TODO.txt")}>
-        {visibleItems.map((item, i) => _todoRow(item, i))}
+        {visibleItems.map((item, i) => _todoRow(item, i, toggleItem))}
         {showLow && lowItems.length > 0 && (
           <React.Fragment>
             <div style={_todoS.divider} />
-            {lowItems.map((item, i) => _todoRow(item, `low-${i}`))}
+            {lowItems.map((item, i) => _todoRow(item, `low-${i}`, toggleItem))}
           </React.Fragment>
         )}
       </div>

@@ -13,7 +13,7 @@ def query(q):
         except: return None
     return {"total":s["issueCount"],"prs":[{"title":n["title"],"repo":n["repository"]["name"],"url":n["url"],"approved":n.get("reviewDecision")=="APPROVED","ci":ci(n)} for n in s["nodes"]]}
 def query_reviews(q):
-    gql = "{viewer{login} search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:5){issueCount nodes{...on PullRequest{title url author{login} repository{name isArchived}reviewDecision commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}} reviews(last:50){nodes{author{login}submittedAt}}}}}}"
+    gql = "{viewer{login} search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:5){issueCount nodes{...on PullRequest{title url author{login} repository{name isArchived}reviewDecision commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}} reviews(last:50){nodes{author{login}submittedAt}} comments(last:50){nodes{author{login}createdAt}}}}}}"
     d = run_gql(gql)
     if not d: return {"total":0,"prs":[]}
     me = d["data"]["viewer"]["login"]
@@ -25,12 +25,16 @@ def query_reviews(q):
     for n in s["nodes"]:
         if n.get("repository",{}).get("isArchived"): continue
         last_commit = n.get("commits",{}).get("nodes",[{}])[0].get("commit",{}).get("committedDate","")
-        my_last_review = ""
+        my_last_touch = ""
         for rv in n.get("reviews",{}).get("nodes",[]):
             if rv.get("author",{}).get("login") != me: continue
             ts = rv.get("submittedAt","")
-            if ts and ts > my_last_review: my_last_review = ts
-        if my_last_review and last_commit and my_last_review >= last_commit: continue
+            if ts and ts > my_last_touch: my_last_touch = ts
+        for cm in n.get("comments",{}).get("nodes",[]):
+            if cm.get("author",{}).get("login") != me: continue
+            ts = cm.get("createdAt","")
+            if ts and ts > my_last_touch: my_last_touch = ts
+        if my_last_touch and last_commit and my_last_touch >= last_commit: continue
         prs.append({"title":n["title"],"repo":n["repository"]["name"],"url":n["url"],"author":n.get("author",{}).get("login",""),"approved":n.get("reviewDecision")=="APPROVED","ci":ci(n)})
     return {"total":len(prs),"prs":prs}
 mine = query("is:pr is:open author:@me sort:created-desc")

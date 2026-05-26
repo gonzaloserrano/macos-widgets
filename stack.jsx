@@ -28,6 +28,11 @@ export const className = `
   * { margin: 0; padding: 0; box-sizing: border-box; }
   a:hover, .clickable:hover { color: #6eb5ff !important; }
   a:hover span, .clickable:hover span { color: #6eb5ff !important; }
+  @keyframes urgentPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(255,69,58,0.75); }
+    70%  { box-shadow: 0 0 0 8px rgba(255,69,58,0);   }
+    100% { box-shadow: 0 0 0 0 rgba(255,69,58,0);     }
+  }
 `;
 
 const WidgetCard = ({ widget, output, index }) => {

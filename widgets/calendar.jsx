@@ -29,6 +29,7 @@ const _calS = {
   today: { color: "#ff453a" },
   sep: { borderTop: "1px solid rgba(255,255,255,0.08)", margin: "10px 0" },
   meetingUrgent: { margin: "0 -4px", padding: "6px 4px", border: "2px solid #ff453a", borderRadius: "8px" },
+  meetingImminent: { margin: "0 -4px", padding: "6px 4px", border: "2px solid #ff453a", borderRadius: "8px", animation: "urgentPulse 1.4s ease-out infinite" },
 };
 
 const _formatTime = (date) =>
@@ -118,10 +119,12 @@ const NextMeetingBlock = ({ output }) => {
   const tr = _timeRemaining(start);
   const minsToNext = (start - now) / 60000;
   const after = minsToNext < 60 && events.length > 1 ? events[1] : null;
+  const imminent = minsToNext < 2;
   const urgent = minsToNext < 5;
+  const wrapStyle = imminent ? _calS.meetingImminent : urgent ? _calS.meetingUrgent : null;
 
   return (
-    <div style={urgent ? _calS.meetingUrgent : null}>
+    <div style={wrapStyle}>
       {!isToday && <div style={todayDone}><span style={{ textDecoration: "line-through" }}>TODAY</span></div>}
       <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
         <div style={{ ...s.title, marginBottom: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{next.summary}</div>

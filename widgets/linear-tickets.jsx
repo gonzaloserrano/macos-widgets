@@ -55,7 +55,7 @@ const ticketNum = (id) => {
 
 const LinearTickets = ({ output, refresh }) => {
   const [redacted, setRedacted] = React.useState(false);
-  const [collapsed, setCollapsed] = React.useState(false);
+  const [collapsed, setCollapsed] = usePersistedState("collapse:linear", false);
 
   const label = (
     <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={refresh}>LINEAR</div>

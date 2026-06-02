@@ -35,6 +35,24 @@ export const className = `
   }
 `;
 
+// Persists UI state (e.g. collapsed) across Übersicht's refresh cycle, which
+// otherwise remounts widgets and resets useState back to its initial value.
+const usePersistedState = (key, initial) => {
+  const [v, setV] = React.useState(() => {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw === null ? initial : JSON.parse(raw);
+    } catch {
+      return initial;
+    }
+  });
+  const set = (next) => {
+    setV(next);
+    try { localStorage.setItem(key, JSON.stringify(next)); } catch {}
+  };
+  return [v, set];
+};
+
 const WidgetCard = ({ widget, output, index }) => {
   const [override, setOverride] = React.useState(null);
   const [loading, setLoading] = React.useState(false);

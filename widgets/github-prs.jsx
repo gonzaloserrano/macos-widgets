@@ -53,7 +53,7 @@ const repoColorMap = (prs) => {
 
 const GithubPRs = ({ output, refresh }) => {
   const [redacted, setRedacted] = React.useState(false);
-  const [collapsed, setCollapsed] = React.useState(false);
+  const [collapsed, setCollapsed] = usePersistedState("collapse:ghpr", false);
 
   let mine = { total: 0, prs: [] }, reviews = { total: 0, prs: [] };
   try {

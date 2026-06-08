@@ -28,6 +28,7 @@ const _calS = {
   dateDim: { color: "rgba(255,255,255,0.35)" },
   today: { color: "#ff453a" },
   sep: { borderTop: "1px solid rgba(255,255,255,0.08)", margin: "10px 0" },
+  meetingSoon: { margin: "0 -4px", padding: "6px 4px", border: "2px solid #ff9f0a", borderRadius: "8px" },
   meetingUrgent: { margin: "0 -4px", padding: "6px 4px", border: "2px solid #ff453a", borderRadius: "8px" },
   meetingImminent: { margin: "0 -4px", padding: "6px 4px", border: "2px solid #ff453a", borderRadius: "8px", animation: "urgentPulse 1.4s ease-out infinite" },
 };
@@ -121,7 +122,8 @@ const NextMeetingBlock = ({ output }) => {
   const after = minsToNext < 60 && events.length > 1 ? events[1] : null;
   const imminent = minsToNext < 2;
   const urgent = minsToNext < 5;
-  const wrapStyle = imminent ? _calS.meetingImminent : urgent ? _calS.meetingUrgent : null;
+  const soon = minsToNext < 15;
+  const wrapStyle = imminent ? _calS.meetingImminent : urgent ? _calS.meetingUrgent : soon ? _calS.meetingSoon : null;
 
   return (
     <div style={wrapStyle}>

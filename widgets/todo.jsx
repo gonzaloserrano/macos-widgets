@@ -31,9 +31,20 @@ const renderTodoText = (text) => {
   return parts.length ? parts : text;
 };
 
+// One translucent tint per level-1 entry, cycled by group index.
+const _todoGroupColors = [
+  "rgba(110,181,255,0.10)", // blue
+  "rgba(126,231,135,0.10)", // green
+  "rgba(255,196,110,0.10)", // orange
+  "rgba(214,142,255,0.10)", // purple
+  "rgba(255,138,138,0.10)", // red
+  "rgba(110,231,231,0.10)", // teal
+];
+
 const _todoS = {
   list: { cursor: "pointer", fontSize: "11px", lineHeight: "1.35", color: "rgba(255,255,255,0.85)" },
   row: { display: "flex", alignItems: "flex-start", gap: "4px", marginBottom: "2px" },
+  group: { borderRadius: "5px", padding: "3px 5px", marginBottom: "3px" },
   idx: { color: "rgba(255,255,255,0.4)", flexShrink: 0, fontVariantNumeric: "tabular-nums" },
   childMark: { color: "rgba(255,255,255,0.35)", flexShrink: 0 },
   checkbox: { margin: "2px 0 0", flexShrink: 0, accentColor: "#6eb5ff", width: "11px", height: "11px", cursor: "pointer" },
@@ -78,6 +89,27 @@ const _todoRow = (item, key, onToggle) => (
     <span style={{ ..._todoS.text, ...(item.checked ? _todoS.done : null) }}>{renderTodoText(item.text)}</span>
   </div>
 );
+
+// Chunk the flat list into level-1 groups: each top-level entry plus the
+// nested children that follow it, so a group can be tinted as one block.
+const _todoGroups = (items) => {
+  const groups = [];
+  items.forEach((item) => {
+    if (item.depth === 0 || groups.length === 0) groups.push([]);
+    groups[groups.length - 1].push(item);
+  });
+  return groups;
+};
+
+const _todoRenderGroups = (items, keyPrefix, onToggle) =>
+  _todoGroups(items).map((g, gi) => (
+    <div
+      key={`${keyPrefix}-g${gi}`}
+      style={{ ..._todoS.group, background: _todoGroupColors[gi % _todoGroupColors.length] }}
+    >
+      {g.map((item, i) => _todoRow(item, i, onToggle))}
+    </div>
+  ));
 
 const _todoFilterDone = (items) => {
   const out = [];
@@ -132,11 +164,11 @@ const Todo = ({ output, refresh }) => {
         </div>
       </div>
       <div style={_todoS.list} onClick={() => run("open ~/TODO.txt")}>
-        {visibleItems.map((item, i) => _todoRow(item, i, toggleItem))}
+        {_todoRenderGroups(visibleItems, "v", toggleItem)}
         {showLow && lowItems.length > 0 && (
           <React.Fragment>
             <div style={_todoS.divider} />
-            {lowItems.map((item, i) => _todoRow(item, `low-${i}`, toggleItem))}
+            {_todoRenderGroups(lowItems, "low", toggleItem)}
           </React.Fragment>
         )}
       </div>

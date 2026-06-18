@@ -57,6 +57,13 @@ const WidgetCard = ({ widget, output, index }) => {
   const [override, setOverride] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
 
+  // A manual-refresh override would otherwise shadow the polled output forever
+  // and freeze the widget (Übersicht reconciles, so this state survives the
+  // poll cycle). Drop it once fresh, non-empty polled output arrives so
+  // auto-refresh resumes. The non-empty guard avoids reverting to a blank
+  // widget during the brief window where the command is regenerating its cache.
+  React.useEffect(() => { if (output) setOverride(null); }, [output]);
+
   const refresh = () => {
     setLoading(true);
     run(`rm -f /tmp/ub_${widget.key}`).then(() =>

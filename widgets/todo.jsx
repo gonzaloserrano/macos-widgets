@@ -10,28 +10,33 @@ const parseTodoLine = (line) => {
   return { depth: 0, checked: null, text: line.trim() };
 };
 
-const _todoLinkRe = /\[([^\]]+)\]\(([^)]+)\)/g;
+// Matches either **bold** (group 1) or [text](url) (groups 2 and 3).
+const _todoInlineRe = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)]+)\)/g;
 const renderTodoText = (text) => {
   const parts = [];
   let last = 0;
   let m;
-  while ((m = _todoLinkRe.exec(text)) !== null) {
+  while ((m = _todoInlineRe.exec(text)) !== null) {
     if (m.index > last) parts.push(text.slice(last, m.index));
-    const url = m[2];
-    parts.push(
-      <a
-        key={parts.length}
-        style={{ color: "#6eb5ff", textDecoration: "underline", cursor: "pointer" }}
-        onClick={(e) => { e.stopPropagation(); e.preventDefault(); run('open "' + url + '"'); }}
-      >{m[1]}</a>
-    );
+    if (m[1] !== undefined) {
+      parts.push(<strong key={parts.length} style={{ fontWeight: 700 }}>{m[1]}</strong>);
+    } else {
+      const url = m[3];
+      parts.push(
+        <a
+          key={parts.length}
+          style={{ color: "#6eb5ff", textDecoration: "underline", cursor: "pointer" }}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); run('open "' + url + '"'); }}
+        >{m[2]}</a>
+      );
+    }
     last = m.index + m[0].length;
   }
   if (last < text.length) parts.push(text.slice(last));
   return parts.length ? parts : text;
 };
 
-// One translucent tint per level-1 entry, cycled by group index.
+// One translucent tint per section, cycled by section index.
 const _todoGroupColors = [
   "rgba(110,181,255,0.10)", // blue
   "rgba(126,231,135,0.10)", // green
@@ -45,6 +50,7 @@ const _todoS = {
   list: { cursor: "pointer", fontSize: "11px", lineHeight: "1.35", color: "rgba(255,255,255,0.85)" },
   row: { display: "flex", alignItems: "flex-start", gap: "4px", marginBottom: "2px" },
   group: { borderRadius: "5px", padding: "3px 5px", marginBottom: "3px" },
+  title: { fontWeight: 700, color: "rgba(255,255,255,0.95)", paddingBottom: "3px", marginBottom: "3px", borderBottom: "2px solid transparent" },
   idx: { color: "rgba(255,255,255,0.4)", flexShrink: 0, fontVariantNumeric: "tabular-nums" },
   childMark: { color: "rgba(255,255,255,0.35)", flexShrink: 0 },
   checkbox: { margin: "2px 0 0", flexShrink: 0, accentColor: "#6eb5ff", width: "11px", height: "11px", cursor: "pointer" },
@@ -55,13 +61,39 @@ const _todoS = {
   divider: { height: "1px", background: "rgba(255,255,255,0.08)", margin: "4px 0" },
 };
 
+// Split raw lines into `---`-delimited parts, preserving blank lines (they delimit
+// sections within a part). srcLine is the 1-based file line for checkbox toggling.
 const _todoSplitParts = (lines) => {
   const parts = [[]];
   lines.forEach((raw, i) => {
     if (raw.trim() === "---") { parts.push([]); return; }
     parts[parts.length - 1].push({ raw, srcLine: i + 1 });
   });
-  return parts.map(p => p.filter(x => x.raw.trim()));
+  return parts;
+};
+
+const _todoIsItem = (raw) => _todoBulletRe.test(raw);
+
+// A section is a blank-line-delimited block. Its first line is the title only when it
+// is not itself a list item; otherwise the section is title-less (e.g. the low-prio block).
+const _todoToSection = (lineObjs) => {
+  const nonBlank = lineObjs.filter(x => x.raw.trim());
+  if (!nonBlank.length) return null;
+  const hasTitle = !_todoIsItem(nonBlank[0].raw);
+  const itemLines = hasTitle ? nonBlank.slice(1) : nonBlank;
+  return {
+    title: hasTitle ? nonBlank[0].raw.trim() : null,
+    items: itemLines.map(x => ({ ...parseTodoLine(x.raw), srcLine: x.srcLine })),
+  };
+};
+
+const _todoSections = (lineObjs) => {
+  const blocks = [[]];
+  lineObjs.forEach((x) => {
+    if (!x.raw.trim()) { if (blocks[blocks.length - 1].length) blocks.push([]); return; }
+    blocks[blocks.length - 1].push(x);
+  });
+  return blocks.map(_todoToSection).filter(Boolean);
 };
 
 const _todoNumber = (items) => {
@@ -90,24 +122,16 @@ const _todoRow = (item, key, onToggle) => (
   </div>
 );
 
-// Chunk the flat list into level-1 groups: each top-level entry plus the
-// nested children that follow it, so a group can be tinted as one block.
-const _todoGroups = (items) => {
-  const groups = [];
-  items.forEach((item) => {
-    if (item.depth === 0 || groups.length === 0) groups.push([]);
-    groups[groups.length - 1].push(item);
-  });
-  return groups;
-};
-
-const _todoRenderGroups = (items, keyPrefix, onToggle) =>
-  _todoGroups(items).map((g, gi) => (
+// Render one tinted block per section: an optional title header followed by its
+// numbered list (numbering restarts per section).
+const _todoRenderSections = (sections, keyPrefix, onToggle) =>
+  sections.map((sec, si) => (
     <div
-      key={`${keyPrefix}-g${gi}`}
-      style={{ ..._todoS.group, background: _todoGroupColors[gi % _todoGroupColors.length] }}
+      key={`${keyPrefix}-s${si}`}
+      style={{ ..._todoS.group, background: _todoGroupColors[si % _todoGroupColors.length] }}
     >
-      {g.map((item, i) => _todoRow(item, i, onToggle))}
+      {sec.title && <div style={_todoS.title}>{renderTodoText(sec.title)}</div>}
+      {_todoNumber(sec.items).map((item, i) => _todoRow(item, i, onToggle))}
     </div>
   ));
 
@@ -129,13 +153,22 @@ const Todo = ({ output, refresh }) => {
   const text = (output || "").trim();
   if (!text) return <div style={s.empty}>No TODOs</div>;
 
-  const [visibleLines = [], lowLines = []] = _todoSplitParts(text.split("\n"));
-  const rawVisible = visibleLines.map(x => ({ ...parseTodoLine(x.raw), srcLine: x.srcLine }));
-  const rawLow = lowLines.map(x => ({ ...parseTodoLine(x.raw), srcLine: x.srcLine }));
-  const doneCount = [...rawVisible, ...rawLow].filter(i => i.checked === true).length;
-  const visibleItems = _todoNumber(hideDone ? _todoFilterDone(rawVisible) : rawVisible);
-  const lowItems = _todoNumber(hideDone ? _todoFilterDone(rawLow) : rawLow);
-  const lowCount = lowItems.filter(i => i.label !== null).length;
+  const [visiblePart = [], lowPart = []] = _todoSplitParts(text.split("\n"));
+  const visibleSections = _todoSections(visiblePart);
+  const lowSections = _todoSections(lowPart);
+
+  const doneCount = [...visibleSections, ...lowSections]
+    .flatMap(sec => sec.items).filter(i => i.checked === true).length;
+
+  // Drop done items (and their descendants) when hideDone is on; keep a section if it
+  // still has items, or was only ever a title.
+  const prep = (sections) => sections
+    .map(sec => ({ title: sec.title, items: hideDone ? _todoFilterDone(sec.items) : sec.items, had: sec.items.length }))
+    .filter(sec => sec.items.length || sec.had === 0);
+
+  const visiblePrepped = prep(visibleSections);
+  const lowPrepped = prep(lowSections);
+  const lowCount = lowPrepped.flatMap(sec => sec.items).filter(i => i.depth === 0).length;
 
   const toggleItem = (item) => {
     const newChar = item.checked ? " " : "x";
@@ -164,11 +197,11 @@ const Todo = ({ output, refresh }) => {
         </div>
       </div>
       <div style={_todoS.list} onClick={() => run("open ~/TODO.txt")}>
-        {_todoRenderGroups(visibleItems, "v", toggleItem)}
-        {showLow && lowItems.length > 0 && (
+        {_todoRenderSections(visiblePrepped, "v", toggleItem)}
+        {showLow && lowPrepped.length > 0 && (
           <React.Fragment>
             <div style={_todoS.divider} />
-            {_todoRenderGroups(lowItems, "low", toggleItem)}
+            {_todoRenderSections(lowPrepped, "low", toggleItem)}
           </React.Fragment>
         )}
       </div>

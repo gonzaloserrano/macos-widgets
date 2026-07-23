@@ -1,4 +1,4 @@
-const _todoCmd = `cat ~/TODO.txt 2>/dev/null || echo ""`;
+const _todoCmd = `cat ~/TODO.md 2>/dev/null || echo ""`;
 
 const _todoCheckRe = /^(\s*)-\s*\[([ xX])\]\s*(.*)$/;
 const _todoBulletRe = /^(\s*)-\s+(.*)$/;
@@ -172,7 +172,7 @@ const Todo = ({ output, refresh }) => {
 
   const toggleItem = (item) => {
     const newChar = item.checked ? " " : "x";
-    run(`sed -i '' '${item.srcLine}s/\\[[xX ]\\]/[${newChar}]/' ~/TODO.txt`).then(refresh);
+    run(`sed -i '' '${item.srcLine}s/\\[[xX ]\\]/[${newChar}]/' ~/TODO.md`).then(refresh);
   };
 
   return (
@@ -196,7 +196,7 @@ const Todo = ({ output, refresh }) => {
           )}
         </div>
       </div>
-      <div style={_todoS.list} onClick={() => run("open ~/TODO.txt")}>
+      <div style={_todoS.list} onClick={() => run('CMUX_QUIET=1 /opt/homebrew/bin/cmux workspace create --name TODO --cwd ~ --command "vi ~/TODO.md" --focus true')}>
         {_todoRenderSections(visiblePrepped, "v", toggleItem)}
         {showLow && lowPrepped.length > 0 && (
           <React.Fragment>

@@ -1,4 +1,4 @@
-const _calendarCmd = `/opt/homebrew/bin/gog calendar events --from="$(date -v-5M -u +%Y-%m-%dT%H:%M:%SZ)" --days=2 --max=6 --json --no-input --account work 2>&1`;
+const _calendarCmd = `/opt/homebrew/bin/gog calendar events --from=today --days=2 --max=25 --json --no-input --account work 2>&1`;
 
 const _calS = {
   header: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" },

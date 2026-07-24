@@ -44,9 +44,13 @@ const _todoUserColor = (name) => {
   return _todoHueColor(h % 360);
 };
 
-// Matches **bold** (group 1), [text](url) (groups 2, 3), or @username (group 4).
-// The `u` flag makes \p{L} match accented names like @José.
-const _todoInlineRe = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)]+)\)|@(\p{L}[\p{L}\p{N}_]*)/gu;
+// Matches **bold** (group 1), [text](url) (groups 2, 3), @username (group 4), or a
+// bare GitHub PR URL (groups 5 repo, 6 number) rendered as a compact repo#num link.
+// The `u` flag makes \p{L} match accented names like @José. The PR-URL segments use
+// [\w.-] (GitHub's own owner/repo charset) so the matched URL can never contain a
+// shell metacharacter — it is passed to `run('open "..."')`, so this is what keeps
+// that shell string injection-safe by construction.
+const _todoInlineRe = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)]+)\)|@(\p{L}[\p{L}\p{N}_]*)|https?:\/\/github\.com\/[\w.-]+\/([\w.-]+)\/pull\/(\d+)/gu;
 const renderTodoText = (text) => {
   const parts = [];
   let last = 0;
@@ -62,6 +66,16 @@ const renderTodoText = (text) => {
           key={parts.length}
           style={{ background: c.bg, color: c.fg, fontWeight: 600, borderRadius: "4px", padding: "0 4px", whiteSpace: "nowrap" }}
         >{m[4]}</span>
+      );
+    } else if (m[5] !== undefined) {
+      const url = m[0];
+      const label = `${m[5]}#${m[6]}`;
+      parts.push(
+        <a
+          key={parts.length}
+          style={{ color: "#6eb5ff", textDecoration: "underline", cursor: "pointer", whiteSpace: "nowrap" }}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); run('open "' + url + '"'); }}
+        >{label}</a>
       );
     } else {
       const url = m[3];

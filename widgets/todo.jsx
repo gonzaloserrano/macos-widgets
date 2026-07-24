@@ -1,5 +1,11 @@
 const _todoCmd = `cat ~/TODO.md 2>/dev/null || echo ""`;
 
+// Clicking opens ~/TODO.md in vi inside a cmux workspace named "TODO". Reuse an existing
+// one (select it, then raise its window) instead of spawning a duplicate on every click;
+// only create a fresh workspace when none is found. Match on custom_title, which is the
+// name set via --name and, unlike title, is never decorated with activity glyphs.
+const _todoOpenCmd = `j=$(/opt/homebrew/bin/cmux workspace list --json); r=$(printf '%s' "$j" | /opt/homebrew/bin/jq -r '[.workspaces[]|select(.custom_title=="TODO")|.ref][0]//empty'); if [ -n "$r" ]; then w=$(printf '%s' "$j" | /opt/homebrew/bin/jq -r .window_ref); CMUX_QUIET=1 /opt/homebrew/bin/cmux workspace select "$r" && CMUX_QUIET=1 /opt/homebrew/bin/cmux focus-window --window "$w"; else CMUX_QUIET=1 /opt/homebrew/bin/cmux workspace create --name TODO --cwd ~ --command "vi ~/TODO.md" --focus true; fi`;
+
 const _todoCheckRe = /^(\s*)-\s*\[([ xX])\]\s*(.*)$/;
 const _todoBulletRe = /^(\s*)-\s+(.*)$/;
 const parseTodoLine = (line) => {
@@ -196,7 +202,7 @@ const Todo = ({ output, refresh }) => {
           )}
         </div>
       </div>
-      <div style={_todoS.list} onClick={() => run('CMUX_QUIET=1 /opt/homebrew/bin/cmux workspace create --name TODO --cwd ~ --command "vi ~/TODO.md" --focus true')}>
+      <div style={_todoS.list} onClick={() => run(_todoOpenCmd)}>
         {_todoRenderSections(visiblePrepped, "v", toggleItem)}
         {showLow && lowPrepped.length > 0 && (
           <React.Fragment>

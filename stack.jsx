@@ -98,7 +98,7 @@ export const render = ({ output }) => {
 };
 
 const s = {
-  stack: { display: "flex", flexDirection: "column", gap: "8px", width: "186px", position: "relative" },
+  stack: { display: "flex", flexDirection: "column", gap: "8px", width: "290px", position: "relative" },
   refresh: { position: "absolute", top: "-18px", right: "0", fontSize: "14px", color: "rgba(255,255,255,0.3)", cursor: "pointer" },
   card: {
     background: "rgba(30, 30, 30, 0.85)",

@@ -16,8 +16,37 @@ const parseTodoLine = (line) => {
   return { depth: 0, checked: null, text: line.trim() };
 };
 
-// Matches either **bold** (group 1) or [text](url) (groups 2 and 3).
-const _todoInlineRe = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)]+)\)/g;
+// Per-user chip colors. Every distinct @user gets its own hue: we collect all
+// usernames in the file up front (_todoBuildUserMap), then hand out hues spaced by
+// the golden angle so no two users collide and adjacent list mentions stay far apart.
+const _todoMentionRe = /@(\p{L}[\p{L}\p{N}_]*)/gu;
+const _todoHueColor = (hue) => ({
+  bg: `hsla(${hue}, 70%, 60%, 0.28)`,
+  fg: `hsl(${hue}, 85%, 82%)`,
+});
+let _todoUserMap = {};
+const _todoBuildUserMap = (text) => {
+  const keys = [];
+  let m;
+  while ((m = _todoMentionRe.exec(text)) !== null) {
+    const k = m[1].toLowerCase();
+    if (!keys.includes(k)) keys.push(k);
+  }
+  const map = {};
+  keys.forEach((k, i) => { map[k] = _todoHueColor(Math.round(i * 137.508) % 360); });
+  return map;
+};
+const _todoUserColor = (name) => {
+  const k = name.toLowerCase();
+  if (_todoUserMap[k]) return _todoUserMap[k];
+  let h = 0; // fallback: hash to a hue (a mention absent from the prebuilt map)
+  for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0;
+  return _todoHueColor(h % 360);
+};
+
+// Matches **bold** (group 1), [text](url) (groups 2, 3), or @username (group 4).
+// The `u` flag makes \p{L} match accented names like @José.
+const _todoInlineRe = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)]+)\)|@(\p{L}[\p{L}\p{N}_]*)/gu;
 const renderTodoText = (text) => {
   const parts = [];
   let last = 0;
@@ -26,6 +55,14 @@ const renderTodoText = (text) => {
     if (m.index > last) parts.push(text.slice(last, m.index));
     if (m[1] !== undefined) {
       parts.push(<strong key={parts.length} style={{ fontWeight: 700 }}>{m[1]}</strong>);
+    } else if (m[4] !== undefined) {
+      const c = _todoUserColor(m[4]);
+      parts.push(
+        <span
+          key={parts.length}
+          style={{ background: c.bg, color: c.fg, fontWeight: 600, borderRadius: "4px", padding: "0 4px", whiteSpace: "nowrap" }}
+        >{m[4]}</span>
+      );
     } else {
       const url = m[3];
       parts.push(
@@ -158,6 +195,8 @@ const Todo = ({ output, refresh }) => {
   const [hideDone, setHideDone] = React.useState(false);
   const text = (output || "").trim();
   if (!text) return <div style={s.empty}>No TODOs</div>;
+
+  _todoUserMap = _todoBuildUserMap(text); // one distinct color per @user, whole file
 
   const [visiblePart = [], lowPart = []] = _todoSplitParts(text.split("\n"));
   const visibleSections = _todoSections(visiblePart);

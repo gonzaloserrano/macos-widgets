@@ -44,13 +44,14 @@ const _todoUserColor = (name) => {
   return _todoHueColor(h % 360);
 };
 
-// Matches **bold** (group 1), [text](url) (groups 2, 3), @username (group 4), or a
-// bare GitHub PR URL (groups 5 repo, 6 number) rendered as a compact repo#num link.
-// The `u` flag makes \p{L} match accented names like @José. The PR-URL segments use
-// [\w.-] (GitHub's own owner/repo charset) so the matched URL can never contain a
-// shell metacharacter — it is passed to `run('open "..."')`, so this is what keeps
-// that shell string injection-safe by construction.
-const _todoInlineRe = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)]+)\)|@(\p{L}[\p{L}\p{N}_]*)|https?:\/\/github\.com\/[\w.-]+\/([\w.-]+)\/pull\/(\d+)/gu;
+// Matches **bold** (group 1), [text](url) (groups 2, 3), @username (group 4), a bare
+// GitHub PR URL (groups 5 repo, 6 number) rendered as a compact repo#num link, or a
+// bare Linear issue URL (group 7 issue id) rendered as its CON-123 id.
+// The `u` flag makes \p{L} match accented names like @José. The PR and Linear URL
+// segments use restricted charsets ([\w.-] for path parts, [A-Z0-9]+-\d+ for the
+// Linear id) so the matched URL can never contain a shell metacharacter: it is passed
+// to `run('open "..."')`, so this is what keeps that shell string injection-safe.
+const _todoInlineRe = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)]+)\)|@(\p{L}[\p{L}\p{N}_]*)|https?:\/\/github\.com\/[\w.-]+\/([\w.-]+)\/pull\/(\d+)|https?:\/\/linear\.app\/[\w.-]+\/issue\/([A-Z0-9]+-\d+)(?:\/[\w.-]*)?/gu;
 const renderTodoText = (text) => {
   const parts = [];
   let last = 0;
@@ -67,9 +68,9 @@ const renderTodoText = (text) => {
           style={{ background: c.bg, color: c.fg, fontWeight: 600, borderRadius: "4px", padding: "0 4px", whiteSpace: "nowrap" }}
         >{m[4]}</span>
       );
-    } else if (m[5] !== undefined) {
+    } else if (m[5] !== undefined || m[7] !== undefined) {
       const url = m[0];
-      const label = `${m[5]}#${m[6]}`;
+      const label = m[7] !== undefined ? m[7] : `${m[5]}#${m[6]}`;
       parts.push(
         <a
           key={parts.length}

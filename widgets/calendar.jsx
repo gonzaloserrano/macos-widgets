@@ -4,26 +4,41 @@
 const _calendarCmd = `/opt/homebrew/bin/gog calendar events --from=$(/bin/date -v-3d +%F) --to=$(/bin/date -v+4d +%F) --max=100 --json --no-input --account work 2>&1`;
 
 const _calS = {
-  header: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" },
-  month: { fontSize: "11px", fontWeight: 700, color: "#ff453a", letterSpacing: "0.5px", cursor: "pointer", flexShrink: 0 },
+  // The month sits in a rotated column beside the grid instead of owning a header
+  // row of its own. Short name so it never outgrows the grid it labels.
+  grid: { display: "flex", alignItems: "center", gap: "5px" },
+  month: {
+    writingMode: "vertical-rl",
+    WebkitWritingMode: "vertical-rl",
+    transform: "rotate(180deg)",
+    fontSize: "10px",
+    fontWeight: 700,
+    color: "#ff453a",
+    letterSpacing: "1px",
+    cursor: "pointer",
+    flexShrink: 0,
+  },
+  // The workday bar doubles as the separator, so it costs no vertical space of its own.
+  barRow: { display: "flex", alignItems: "center", gap: "6px", margin: "8px 0" },
   bar: (() => {
     const mask = "linear-gradient(to right, #000 0, #000 calc(25% - 1px), transparent calc(25% - 1px), transparent calc(25% + 1px), #000 calc(25% + 1px), #000 calc(50% - 1px), transparent calc(50% - 1px), transparent calc(50% + 1px), #000 calc(50% + 1px), #000 calc(75% - 1px), transparent calc(75% - 1px), transparent calc(75% + 1px), #000 calc(75% + 1px), #000 100%)";
     return { flex: 1, height: "4px", borderRadius: "2px", background: "rgba(255,255,255,0.18)", position: "relative", overflow: "hidden", maskImage: mask, WebkitMaskImage: mask };
   })(),
   barFill: { position: "absolute", right: 0, top: 0, bottom: 0, background: "#ff453a", borderRadius: "2px", transition: "width 0.3s ease-out" },
   minsLeft: { fontSize: "10px", fontWeight: 600, color: "#ff453a", fontVariantNumeric: "tabular-nums", flexShrink: 0 },
-  row: { display: "flex", marginBottom: "3px" },
-  cell: { flex: 1, display: "flex", justifyContent: "center", alignItems: "center", height: "20px" },
-  dayCell: { flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "30px" },
+  row: { display: "flex", marginBottom: "1px" },
+  labelCell: { flex: 1, display: "flex", justifyContent: "center", alignItems: "center", height: "12px" },
+  dayCell: { flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "28px" },
+  dayCellPlain: { flex: 1, display: "flex", justifyContent: "center", alignItems: "center", height: "18px" },
   count: { fontSize: "9px", fontWeight: 600, lineHeight: "10px", color: "rgba(255,255,255,0.5)", fontVariantNumeric: "tabular-nums" },
   countFree: { color: "rgba(255,255,255,0.18)" },
-  label: { fontSize: "10px", fontWeight: 600, color: "rgba(255,255,255,0.85)", fontVariantNumeric: "tabular-nums" },
+  label: { fontSize: "10px", fontWeight: 600, lineHeight: "12px", color: "rgba(255,255,255,0.85)", fontVariantNumeric: "tabular-nums" },
   labelDim: { color: "rgba(255,255,255,0.35)" },
   date: {
     display: "inline-block",
-    width: "20px",
-    height: "20px",
-    lineHeight: "20px",
+    width: "18px",
+    height: "18px",
+    lineHeight: "18px",
     textAlign: "center",
     fontSize: "11px",
     fontWeight: 600,
@@ -33,7 +48,9 @@ const _calS = {
   },
   dateDim: { color: "rgba(255,255,255,0.35)" },
   today: { color: "#ff453a" },
-  sep: { borderTop: "1px solid rgba(255,255,255,0.08)", margin: "10px 0" },
+  sep: { borderTop: "1px solid rgba(255,255,255,0.08)", margin: "8px 0" },
+  // Greyed title is the only cue that the next meeting is not today.
+  laterTitle: { color: "rgba(255,255,255,0.5)" },
   meetingSoon: { margin: "0 -4px", padding: "6px 4px", border: "2px solid #ff9f0a", borderRadius: "8px" },
   meetingUrgent: { margin: "0 -4px", padding: "6px 4px", border: "2px solid #ff453a", borderRadius: "8px" },
   meetingImminent: { margin: "0 -4px", padding: "6px 4px", border: "2px solid #ff453a", borderRadius: "8px", animation: "urgentPulse 1.4s ease-out infinite" },
@@ -135,16 +152,7 @@ const NextMeetingBlock = ({ allEvents, output }) => {
     })
     .sort((a, b) => _startDate(a) - _startDate(b));
 
-  const todayDone = { ...s.title, color: "rgba(255,255,255,0.85)" };
-
-  if (events.length === 0) {
-    return (
-      <div>
-        <div style={todayDone}><span style={{ textDecoration: "line-through" }}>TODAY</span></div>
-        <div style={s.empty}>No upcoming</div>
-      </div>
-    );
-  }
+  if (events.length === 0) return <div style={s.empty}>No upcoming</div>;
 
   const next = events[0];
   const start = _startDate(next);
@@ -159,9 +167,11 @@ const NextMeetingBlock = ({ allEvents, output }) => {
 
   return (
     <div style={wrapStyle}>
-      {!isToday && <div style={todayDone}><span style={{ textDecoration: "line-through" }}>TODAY</span></div>}
       <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
-        <div style={{ ...s.title, marginBottom: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{next.summary}</div>
+        <div style={{
+          ...s.title, marginBottom: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          ...(isToday ? null : _calS.laterTitle),
+        }}>{next.summary}</div>
         <MeetingLinkIcon event={next} />
       </div>
       <div style={s.meta}>
@@ -185,7 +195,7 @@ const NextMeetingBlock = ({ allEvents, output }) => {
 const DayCell = ({ date, count, isToday }) => {
   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
   return (
-    <div style={count === null ? _calS.cell : _calS.dayCell}>
+    <div style={count === null ? _calS.dayCellPlain : _calS.dayCell}>
       <span style={{
         ..._calS.date,
         ...(isWeekend && !isToday ? _calS.dateDim : null),
@@ -228,7 +238,7 @@ const Calendar = ({ output, refresh }) => {
   const counts = events ? _countByDay(events) : null;
 
   const dayLetters = ["S", "M", "T", "W", "T", "F", "S"];
-  const monthName = now.toLocaleString("en-US", { month: "long" }).toUpperCase();
+  const monthName = now.toLocaleString("en-US", { month: "short" }).toUpperCase();
   const todayStr = now.toDateString();
 
   const WORK_START = 9 * 60;
@@ -247,34 +257,24 @@ const Calendar = ({ output, refresh }) => {
 
   return (
     <div>
-      <div style={{ cursor: "pointer" }} onClick={() => setExpanded(e => !e)}>
-        <div style={_calS.header}>
-          <div style={_calS.month} onClick={(e) => { e.stopPropagation(); refresh(); }}>{monthName}</div>
-          {!todayIsOffDay && (
-            <div style={_calS.bar} title={tooltip}>
-              <div style={{ ..._calS.barFill, width: `${remaining * 100}%` }} />
-            </div>
-          )}
-          {!todayIsOffDay && minsLeft > 0 && minsLeft < 60 && (
-            <div style={_calS.minsLeft}>{minsLeft}m</div>
-          )}
-        </div>
-        <div style={_calS.row}>
-          {days.map((d, i) => {
-            const isToday = d.toDateString() === todayStr;
-            const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-            return (
-              <div key={i} style={_calS.cell}>
-                <span style={{
-                  ..._calS.label,
-                  ...(isWeekend && !isToday ? _calS.labelDim : null),
-                  ...(isToday ? _calS.today : null),
-                }}>{dayLetters[d.getDay()]}</span>
-              </div>
-            );
-          })}
-        </div>
-        <div>
+      <div style={_calS.grid} onClick={() => setExpanded(e => !e)}>
+        <div style={_calS.month} onClick={(e) => { e.stopPropagation(); refresh(); }}>{monthName}</div>
+        <div style={{ flex: 1, cursor: "pointer" }}>
+          <div style={_calS.row}>
+            {days.map((d, i) => {
+              const isToday = d.toDateString() === todayStr;
+              const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+              return (
+                <div key={i} style={_calS.labelCell}>
+                  <span style={{
+                    ..._calS.label,
+                    ...(isWeekend && !isToday ? _calS.labelDim : null),
+                    ...(isToday ? _calS.today : null),
+                  }}>{dayLetters[d.getDay()]}</span>
+                </div>
+              );
+            })}
+          </div>
           <div style={_calS.row}>
             {days.map((d, i) => (
               <DayCell
@@ -294,7 +294,16 @@ const Calendar = ({ output, refresh }) => {
           ))}
         </div>
       </div>
-      <div style={_calS.sep} />
+      {todayIsOffDay ? (
+        <div style={_calS.sep} />
+      ) : (
+        <div style={_calS.barRow}>
+          <div style={_calS.bar} title={tooltip}>
+            <div style={{ ..._calS.barFill, width: `${remaining * 100}%` }} />
+          </div>
+          {minsLeft > 0 && minsLeft < 60 && <div style={_calS.minsLeft}>{minsLeft}m</div>}
+        </div>
+      )}
       <NextMeetingBlock allEvents={events} output={output} />
     </div>
   );

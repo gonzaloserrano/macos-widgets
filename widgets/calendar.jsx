@@ -1,4 +1,7 @@
-const _calendarCmd = `/opt/homebrew/bin/gog calendar events --from=today --days=2 --max=25 --json --no-input --account work 2>&1`;
+// The grid is centred on today (3 days back, 3 ahead), so the fetch window has
+// to match it. --days=N is not usable here: it means "next N days from now" and
+// silently overrides --from. --to is exclusive at midnight, hence +4d for +3 days.
+const _calendarCmd = `/opt/homebrew/bin/gog calendar events --from=$(/bin/date -v-3d +%F) --to=$(/bin/date -v+4d +%F) --max=100 --json --no-input --account work 2>&1`;
 
 const _calS = {
   header: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" },
@@ -11,6 +14,9 @@ const _calS = {
   minsLeft: { fontSize: "10px", fontWeight: 600, color: "#ff453a", fontVariantNumeric: "tabular-nums", flexShrink: 0 },
   row: { display: "flex", marginBottom: "3px" },
   cell: { flex: 1, display: "flex", justifyContent: "center", alignItems: "center", height: "20px" },
+  dayCell: { flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", height: "30px" },
+  count: { fontSize: "9px", fontWeight: 600, lineHeight: "10px", color: "rgba(255,255,255,0.5)", fontVariantNumeric: "tabular-nums" },
+  countFree: { color: "rgba(255,255,255,0.18)" },
   label: { fontSize: "10px", fontWeight: 600, color: "rgba(255,255,255,0.85)", fontVariantNumeric: "tabular-nums" },
   labelDim: { color: "rgba(255,255,255,0.35)" },
   date: {
@@ -35,6 +41,33 @@ const _calS = {
 
 const _formatTime = (date) =>
   date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+// All-day events carry start.date ("2026-07-27"), which new Date() would read as
+// UTC midnight and land on the previous day west of Greenwich. Build those locally.
+const _startDate = (event) => {
+  const dt = event.start?.dateTime;
+  if (dt) return new Date(dt);
+  const d = event.start?.date;
+  if (!d) return null;
+  const [y, m, day] = d.split("-").map(Number);
+  return new Date(y, m - 1, day);
+};
+
+// Recurring self-blockers rather than meetings: they show up almost every weekday,
+// so they inflate the per-day counts and would hijack the next-meeting slot. OOO is
+// matched as a whole word so it can't hit a title that merely contains those letters.
+const _NOISE = [/please ask before scheduling/i, /\booo\b/i, /lunch/i];
+const _isNoise = (event) => _NOISE.some((re) => re.test(event.summary || ""));
+
+// Keyed by toDateString() so lookups work off the same Date objects the grid builds.
+const _countByDay = (events) => {
+  const counts = {};
+  for (const e of events) {
+    const start = _startDate(e);
+    if (start) counts[start.toDateString()] = (counts[start.toDateString()] || 0) + 1;
+  }
+  return counts;
+};
 
 const _timeRemaining = (start) => {
   const diffMs = start - new Date();
@@ -83,13 +116,8 @@ const MeetingLinkIcon = ({ event }) => {
   );
 };
 
-const NextMeetingBlock = ({ output }) => {
-  let data;
-  try {
-    data = JSON.parse(output);
-  } catch {
-    return <div style={s.empty}>{output || "Calendar unavailable"}</div>;
-  }
+const NextMeetingBlock = ({ allEvents, output }) => {
+  if (!allEvents) return <div style={s.empty}>{output || "Calendar unavailable"}</div>;
 
   const now = new Date();
   const GRACE_MS = 5 * 60 * 1000;
@@ -97,11 +125,15 @@ const NextMeetingBlock = ({ output }) => {
     const others = (e.attendees || []).filter((a) => !a.self && !a.resource);
     return others.length > 0 && others.every((a) => a.responseStatus === "declined");
   };
-  const events = (data.events || []).filter((e) => {
-    const start = e.start?.dateTime || e.start?.date;
-    if (!start || new Date(start) <= new Date(now.getTime() - GRACE_MS)) return false;
-    return !allOthersDeclined(e);
-  });
+  // The window now starts 3 days in the past, so drop what already happened and
+  // sort rather than trusting the API order to put the next meeting first.
+  const events = allEvents
+    .filter((e) => {
+      const start = _startDate(e);
+      if (!start || start <= new Date(now.getTime() - GRACE_MS)) return false;
+      return !allOthersDeclined(e);
+    })
+    .sort((a, b) => _startDate(a) - _startDate(b));
 
   const todayDone = { ...s.title, color: "rgba(255,255,255,0.85)" };
 
@@ -115,7 +147,7 @@ const NextMeetingBlock = ({ output }) => {
   }
 
   const next = events[0];
-  const start = new Date(next.start.dateTime || next.start.date);
+  const start = _startDate(next);
   const isToday = start.toDateString() === now.toDateString();
   const tr = _timeRemaining(start);
   const minsToNext = (start - now) / 60000;
@@ -139,10 +171,32 @@ const NextMeetingBlock = ({ output }) => {
       </div>
       {after && (
         <div style={s.meta}>
-          <span style={s.afterLabel}>{_formatTime(new Date(after.start.dateTime || after.start.date))}</span>
+          <span style={s.afterLabel}>{_formatTime(_startDate(after))}</span>
           <span style={s.dot}>&middot;</span>
           <span style={s.afterTitle}>{after.summary}</span>
         </div>
+      )}
+    </div>
+  );
+};
+
+// count === null means "outside the fetched window", so no number is shown at all;
+// 0 renders as a faint dot so a free day still reads as data, not as missing data.
+const DayCell = ({ date, count, isToday }) => {
+  const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+  return (
+    <div style={count === null ? _calS.cell : _calS.dayCell}>
+      <span style={{
+        ..._calS.date,
+        ...(isWeekend && !isToday ? _calS.dateDim : null),
+        ...(isToday ? _calS.today : null),
+      }}>{date.getDate()}</span>
+      {count !== null && (
+        <span style={{
+          ..._calS.count,
+          ...(count === 0 ? _calS.countFree : null),
+          ...(isToday ? _calS.today : null),
+        }}>{count === 0 ? "·" : count}</span>
       )}
     </div>
   );
@@ -152,19 +206,28 @@ const Calendar = ({ output, refresh }) => {
   const [expanded, setExpanded] = React.useState(false);
 
   const now = new Date();
-  const daysSinceMonday = (now.getDay() + 6) % 7;
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - daysSinceMonday);
 
-  const weekDays = (offsetWeeks) => Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + offsetWeeks * 7 + i);
+  // Rolling window instead of a Mon-Sun week: today sits in the middle column,
+  // with 3 days of context on each side. Rows below step by 7 so every column
+  // keeps the same weekday as the header letters.
+  const weekFrom = (offsetDays) => Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(now.getDate() + offsetDays + i);
     return d;
   });
-  const days = weekDays(0);
-  const futureWeeks = expanded ? [1, 2, 3].map(weekDays) : [];
+  const days = weekFrom(-3);
+  const futureWeeks = expanded ? [4, 11, 18].map(weekFrom) : [];
 
-  const labels = ["M", "T", "W", "T", "F", "S", "S"];
+  let data = null;
+  try {
+    data = JSON.parse(output);
+  } catch {}
+  // One filter point, so the counts and the next-meeting block never disagree.
+  const events = data ? (data.events || []).filter((e) => !_isNoise(e)) : null;
+  // Only the centred row gets counts; the expanded rows fall outside the fetch window.
+  const counts = events ? _countByDay(events) : null;
+
+  const dayLetters = ["S", "M", "T", "W", "T", "F", "S"];
   const monthName = now.toLocaleString("en-US", { month: "long" }).toUpperCase();
   const todayStr = now.toDateString();
 
@@ -197,54 +260,42 @@ const Calendar = ({ output, refresh }) => {
           )}
         </div>
         <div style={_calS.row}>
-          {labels.map((lab, i) => {
-            const isToday = days[i].toDateString() === todayStr;
+          {days.map((d, i) => {
+            const isToday = d.toDateString() === todayStr;
+            const isWeekend = d.getDay() === 0 || d.getDay() === 6;
             return (
               <div key={i} style={_calS.cell}>
                 <span style={{
                   ..._calS.label,
-                  ...(i >= 5 && !isToday ? _calS.labelDim : null),
+                  ...(isWeekend && !isToday ? _calS.labelDim : null),
                   ...(isToday ? _calS.today : null),
-                }}>{lab}</span>
+                }}>{dayLetters[d.getDay()]}</span>
               </div>
             );
           })}
         </div>
         <div>
           <div style={_calS.row}>
-            {days.map((d, i) => {
-              const isToday = d.toDateString() === todayStr;
-              const isWeekend = i >= 5;
-              return (
-                <div key={i} style={_calS.cell}>
-                  <span style={{
-                    ..._calS.date,
-                    ...(isWeekend && !isToday ? _calS.dateDim : null),
-                    ...(isToday ? _calS.today : null),
-                  }}>{d.getDate()}</span>
-                </div>
-              );
-            })}
+            {days.map((d, i) => (
+              <DayCell
+                key={i}
+                date={d}
+                isToday={d.toDateString() === todayStr}
+                count={counts ? counts[d.toDateString()] || 0 : null}
+              />
+            ))}
           </div>
           {futureWeeks.map((week, wi) => (
             <div key={wi} style={_calS.row}>
-              {week.map((d, i) => {
-                const isWeekend = i >= 5;
-                return (
-                  <div key={i} style={_calS.cell}>
-                    <span style={{
-                      ..._calS.date,
-                      ...(isWeekend ? _calS.dateDim : null),
-                    }}>{d.getDate()}</span>
-                  </div>
-                );
-              })}
+              {week.map((d, i) => (
+                <DayCell key={i} date={d} isToday={false} count={null} />
+              ))}
             </div>
           ))}
         </div>
       </div>
       <div style={_calS.sep} />
-      <NextMeetingBlock output={output} />
+      <NextMeetingBlock allEvents={events} output={output} />
     </div>
   );
 };

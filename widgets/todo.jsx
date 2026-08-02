@@ -6,14 +6,57 @@ const _todoCmd = `cat ~/TODO.md 2>/dev/null || echo ""`;
 // name set via --name and, unlike title, is never decorated with activity glyphs.
 const _todoOpenCmd = `j=$(/opt/homebrew/bin/cmux workspace list --json); r=$(printf '%s' "$j" | /opt/homebrew/bin/jq -r '[.workspaces[]|select(.custom_title=="TODO")|.ref][0]//empty'); if [ -n "$r" ]; then w=$(printf '%s' "$j" | /opt/homebrew/bin/jq -r .window_ref); CMUX_QUIET=1 /opt/homebrew/bin/cmux workspace select "$r" && CMUX_QUIET=1 /opt/homebrew/bin/cmux focus-window --window "$w"; else CMUX_QUIET=1 /opt/homebrew/bin/cmux workspace create --name TODO --cwd ~ --command "vi ~/TODO.md" --focus true; fi`;
 
+// Rewrite ~/TODO.md wholesale after a reorder. The content goes through base64 so no
+// line of the file can be reinterpreted as shell syntax, and it lands via a temp file
+// in the same directory + mv, so a concurrent `cat` never sees a half-written file.
+const _todoB64 = (str) => {
+  let bin = "";
+  new TextEncoder().encode(str).forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin);
+};
+const _todoWriteCmd = (lines) => {
+  const content = lines.join("\n").replace(/\n+$/, "") + "\n";
+  return `printf %s '${_todoB64(content)}' | base64 -d > ~/.TODO.md.tmp && mv ~/.TODO.md.tmp ~/TODO.md`;
+};
+
+// Move the 1-based line range [from, to] so it lands immediately before line `before`
+// (which indexes the *original* array, hence the shift when the range sat above it).
+// Used for items: they live inside a block, so no blank line is ever involved.
+const _todoMoveLines = (lines, from, to, before) => {
+  const chunk = lines.slice(from - 1, to);
+  const rest = [...lines.slice(0, from - 1), ...lines.slice(to)];
+  const at = before > to ? before - 1 - (to - from + 1) : before - 1;
+  rest.splice(at, 0, ...chunk);
+  return rest;
+};
+
+// Same, for a whole section. Sections are delimited by blank lines, so a bare line
+// splice would fuse the moved block into its new neighbour: instead the block leaves
+// its trailing blanks behind and gets blanks re-added on whichever side needs one.
+const _todoMoveSection = (lines, from, to, before) => {
+  let end = to;
+  while (end < lines.length && !lines[end].trim()) end++;
+  const block = lines.slice(from - 1, to);
+  const rest = [...lines.slice(0, from - 1), ...lines.slice(end)];
+  const at = before > to ? before - 1 - (end - from + 1) : before - 1;
+  const prevBlank = at === 0 || !rest[at - 1].trim();
+  const nextBlank = at >= rest.length || !rest[at].trim();
+  rest.splice(at, 0, ...(prevBlank ? [] : [""]), ...block, ...(nextBlank ? [] : [""]));
+  return rest;
+};
+
 const _todoCheckRe = /^(\s*)-\s*\[([ xX])\]\s*(.*)$/;
 const _todoBulletRe = /^(\s*)-\s+(.*)$/;
+// `bullet` marks real `- ` list lines. Plain text lines (notes in the low-prio block)
+// also render as rows, but they are not draggable: a section takes its title from a
+// first line that is not a list item, so dropping one at the head of a block would
+// silently promote it to that section's title.
 const parseTodoLine = (line) => {
   const c = line.match(_todoCheckRe);
-  if (c) return { depth: Math.floor(c[1].length / 2), checked: c[2].toLowerCase() === "x", text: c[3] };
+  if (c) return { depth: Math.floor(c[1].length / 2), checked: c[2].toLowerCase() === "x", text: c[3], bullet: true };
   const b = line.match(_todoBulletRe);
-  if (b) return { depth: Math.floor(b[1].length / 2), checked: null, text: b[2] };
-  return { depth: 0, checked: null, text: line.trim() };
+  if (b) return { depth: Math.floor(b[1].length / 2), checked: null, text: b[2], bullet: true };
+  return { depth: 0, checked: null, text: line.trim(), bullet: false };
 };
 
 // Per-user chip colors. Every distinct @user gets its own hue: we collect all
@@ -104,11 +147,110 @@ const _todoGroupColors = [
   "rgba(110,231,231,0.10)", // teal
 ];
 
+// Manual sorting. HTML5 drag-and-drop does not initiate reliably inside Übersicht's
+// borderless, non-activating window, so the gesture is tracked from raw mouse events:
+// a drag only begins once the cursor has travelled _TODO_DRAG_MIN px, which leaves
+// plain clicks (open vi, toggle a checkbox) working untouched. Drop targets are
+// hit-tested against live bounding rects, so nothing is precomputed at render time.
+const _TODO_DRAG_MIN = 4;
+
+// Nearest zone of the same kind (items only drop among items, sections among
+// sections); the cursor being past its midpoint means "after", i.e. insert at the
+// line following the zone's span.
+const _todoHitTest = (zones, kind, y) => {
+  let best = null;
+  Object.keys(zones).forEach((id) => {
+    const z = zones[id];
+    if (z.kind !== kind) return;
+    const r = z.el.getBoundingClientRect();
+    const dist = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+    if (!best || dist < best.dist) best = { dist, id, z, mid: (r.top + r.bottom) / 2 };
+  });
+  if (!best) return null;
+  const after = y > best.mid;
+  return { id: best.id, edge: after ? "bottom" : "top", before: after ? best.z.endLine + 1 : best.z.startLine };
+};
+
+const _useTodoSort = (onMove) => {
+  const zones = React.useRef({});
+  const g = React.useRef(null);        // live gesture, mutated without re-rendering
+  const draggedAt = React.useRef(0);
+  const onMoveRef = React.useRef(onMove);
+  onMoveRef.current = onMove;
+  const [drag, setDrag] = React.useState(null);
+
+  React.useEffect(() => {
+    const move = (e) => {
+      const cur = g.current;
+      if (!cur) return;
+      if (!cur.active) {
+        if (Math.abs(e.clientX - cur.x0) + Math.abs(e.clientY - cur.y0) < _TODO_DRAG_MIN) return;
+        cur.active = true;
+      }
+      cur.target = _todoHitTest(zones.current, cur.kind, e.clientY);
+      setDrag({ id: cur.id, label: cur.label, x: e.clientX, y: e.clientY, target: cur.target });
+    };
+    const up = () => {
+      const cur = g.current;
+      g.current = null;
+      setDrag(null);
+      if (!cur || !cur.active) return;
+      draggedAt.current = performance.now();
+      const t = cur.target;
+      // Landing anywhere inside its own span is a no-op, not a move.
+      if (t && (t.before < cur.startLine || t.before > cur.endLine + 1)) onMoveRef.current(cur, t.before);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    return () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+  }, []);
+
+  return {
+    dragging: drag && drag.id,
+    register: (id, meta) => (el) => { if (el) zones.current[id] = { el, ...meta }; else delete zones.current[id]; },
+    start: (e, meta) => {
+      if (e.button !== 0 || e.target.closest("a, input")) return;
+      g.current = { ...meta, x0: e.clientX, y0: e.clientY, active: false, target: null };
+    },
+    mark: (id, edge) => (drag && drag.target && drag.target.id === id && drag.target.edge === edge
+      ? <div style={_todoDropMark(edge)} /> : null),
+    ghost: drag && <div style={{ ..._todoS.ghost, left: `${drag.x + 10}px`, top: `${drag.y + 10}px` }}>{drag.label}</div>,
+    // mouseup fires the list's click too; ignore clicks that are really drag ends. A
+    // timestamp rather than a flag, so a mouseup outside the card cannot leave the
+    // next genuine click swallowed.
+    wasDrag: () => performance.now() - draggedAt.current < 300,
+  };
+};
+
+// Absolutely positioned so showing it cannot resize the zone it sits in, which would
+// otherwise move the midpoint under the cursor and make the indicator flicker.
+const _todoDropMark = (edge) => ({
+  position: "absolute",
+  left: 0,
+  right: 0,
+  [edge === "top" ? "top" : "bottom"]: "-2px",
+  height: "2px",
+  borderRadius: "1px",
+  background: "#6eb5ff",
+  boxShadow: "0 0 4px rgba(110,181,255,0.9)",
+});
+
 const _todoS = {
-  list: { cursor: "pointer", fontSize: "11px", lineHeight: "1.35", color: "rgba(255,255,255,0.85)" },
+  list: { cursor: "pointer", fontSize: "11px", lineHeight: "1.35", color: "rgba(255,255,255,0.85)", userSelect: "none", WebkitUserSelect: "none" },
   row: { display: "flex", alignItems: "flex-start", gap: "4px", marginBottom: "2px" },
-  group: { borderRadius: "5px", padding: "3px 5px", marginBottom: "3px" },
-  title: { fontWeight: 700, color: "rgba(255,255,255,0.95)", paddingBottom: "3px", marginBottom: "3px", borderBottom: "2px solid transparent" },
+  group: { borderRadius: "5px", padding: "3px 5px", marginBottom: "3px", position: "relative" },
+  title: { fontWeight: 700, color: "rgba(255,255,255,0.95)", paddingBottom: "3px", marginBottom: "3px", borderBottom: "2px solid transparent", cursor: "grab" },
+  span: { position: "relative" },
+  ghost: {
+    position: "fixed", zIndex: 9999, pointerEvents: "none",
+    background: "rgba(40,40,40,0.95)", border: "1px solid rgba(110,181,255,0.6)",
+    borderRadius: "4px", padding: "2px 6px", fontSize: "11px", color: "#fff",
+    maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.45)",
+  },
   idx: { color: "rgba(255,255,255,0.4)", flexShrink: 0, fontVariantNumeric: "tabular-nums" },
   childMark: { color: "rgba(255,255,255,0.35)", flexShrink: 0 },
   checkbox: { margin: "2px 0 0", flexShrink: 0, accentColor: "#6eb5ff", width: "11px", height: "11px", cursor: "pointer" },
@@ -141,8 +283,31 @@ const _todoToSection = (lineObjs) => {
   const itemLines = hasTitle ? nonBlank.slice(1) : nonBlank;
   return {
     title: hasTitle ? nonBlank[0].raw.trim() : null,
-    items: itemLines.map(x => ({ ...parseTodoLine(x.raw), srcLine: x.srcLine })),
+    items: _todoWithSpans(itemLines.map(x => ({ ...parseTodoLine(x.raw), srcLine: x.srcLine }))),
+    // The block's own line span, for reordering whole sections in the file. A block
+    // never contains blank lines, so its last non-blank line is its last line.
+    startLine: nonBlank[0].srcLine,
+    endLine: nonBlank[nonBlank.length - 1].srcLine,
   };
+};
+
+// A top-level item owns the indented lines under it, and a drag moves that whole span,
+// so record where it ends now: hideDone may later hide children from the render, and
+// the span must still cover them.
+const _todoWithSpans = (items) => items.map((item, i) => {
+  let spanEnd = item.srcLine;
+  for (let j = i + 1; j < items.length && items[j].depth > item.depth; j++) spanEnd = items[j].srcLine;
+  return { ...item, spanEnd };
+});
+
+// Each top-level item plus its indented children, so a drag zone can wrap the lot.
+const _todoSpanGroups = (items) => {
+  const groups = [];
+  items.forEach((item) => {
+    if (item.depth === 0 || !groups.length) groups.push([item]);
+    else groups[groups.length - 1].push(item);
+  });
+  return groups;
 };
 
 const _todoSections = (lineObjs) => {
@@ -181,17 +346,49 @@ const _todoRow = (item, key, onToggle) => (
 );
 
 // Render one tinted block per section: an optional title header followed by its
-// numbered list (numbering restarts per section).
-const _todoRenderSections = (sections, keyPrefix, onToggle) =>
-  sections.map((sec, si) => (
-    <div
-      key={`${keyPrefix}-s${si}`}
-      style={{ ..._todoS.group, background: _todoGroupColors[si % _todoGroupColors.length] }}
-    >
-      {sec.title && <div style={_todoS.title}>{renderTodoText(sec.title)}</div>}
-      {_todoNumber(sec.items).map((item, i) => _todoRow(item, i, onToggle))}
-    </div>
-  ));
+// numbered list (numbering restarts per section). Both levels are drag zones: the
+// section by its title, each top-level item (with its children) by anywhere in the row.
+const _todoRenderSections = (sections, keyPrefix, onToggle, sort) =>
+  sections.map((sec, si) => {
+    const secId = `${keyPrefix}-s${si}`;
+    const secDrag = { kind: "section", id: secId, startLine: sec.startLine, endLine: sec.endLine, label: sec.title };
+    return (
+      <div
+        key={secId}
+        ref={sort.register(secId, { kind: "section", startLine: sec.startLine, endLine: sec.endLine })}
+        style={{
+          ..._todoS.group,
+          background: _todoGroupColors[si % _todoGroupColors.length],
+          opacity: sort.dragging === secId ? 0.35 : 1,
+        }}
+      >
+        {sort.mark(secId, "top")}
+        {sec.title && (
+          <div style={_todoS.title} onMouseDown={(e) => sort.start(e, secDrag)}>{renderTodoText(sec.title)}</div>
+        )}
+        {_todoSpanGroups(_todoNumber(sec.items)).map((group) => {
+          const head = group[0];
+          const id = `${secId}-i${head.srcLine}`;
+          const rows = group.map((item, i) => _todoRow(item, i, onToggle));
+          if (!head.bullet) return <div key={id}>{rows}</div>;
+          const meta = { kind: "item", startLine: head.srcLine, endLine: head.spanEnd };
+          return (
+            <div
+              key={id}
+              ref={sort.register(id, meta)}
+              style={{ ..._todoS.span, opacity: sort.dragging === id ? 0.35 : 1 }}
+              onMouseDown={(e) => sort.start(e, { ...meta, id, label: head.text })}
+            >
+              {sort.mark(id, "top")}
+              {rows}
+              {sort.mark(id, "bottom")}
+            </div>
+          );
+        })}
+        {sort.mark(secId, "bottom")}
+      </div>
+    );
+  });
 
 const _todoFilterDone = (items) => {
   const out = [];
@@ -209,6 +406,22 @@ const Todo = ({ output, refresh }) => {
   const [showLow, setShowLow] = React.useState(false);
   const [hideDone, setHideDone] = React.useState(false);
   const text = (output || "").trim();
+
+  // Apply a drop by rewriting ~/TODO.md. The card renders cached output (up to ~10s
+  // stale) and the file may have been edited in vi since, so re-read it first and bail
+  // if it moved: reordering a stale snapshot would silently clobber those edits.
+  const applyMove = (src, before) => {
+    run(_todoCmd).then((cur) => {
+      if (cur.trim() !== text) { refresh(); return; }
+      const lines = cur.trim().split("\n");
+      const next = src.kind === "section"
+        ? _todoMoveSection(lines, src.startLine, src.endLine, before)
+        : _todoMoveLines(lines, src.startLine, src.endLine, before);
+      run(_todoWriteCmd(next)).then(refresh);
+    });
+  };
+  const sort = _useTodoSort(applyMove);
+
   if (!text) return <div style={s.empty}>No TODOs</div>;
 
   _todoUserMap = _todoBuildUserMap(text); // one distinct color per @user, whole file
@@ -223,7 +436,7 @@ const Todo = ({ output, refresh }) => {
   // Drop done items (and their descendants) when hideDone is on; keep a section if it
   // still has items, or was only ever a title.
   const prep = (sections) => sections
-    .map(sec => ({ title: sec.title, items: hideDone ? _todoFilterDone(sec.items) : sec.items, had: sec.items.length }))
+    .map(sec => ({ ...sec, items: hideDone ? _todoFilterDone(sec.items) : sec.items, had: sec.items.length }))
     .filter(sec => sec.items.length || sec.had === 0);
 
   const visiblePrepped = prep(visibleSections);
@@ -256,15 +469,16 @@ const Todo = ({ output, refresh }) => {
           )}
         </div>
       </div>
-      <div style={_todoS.list} onClick={() => run(_todoOpenCmd)}>
-        {_todoRenderSections(visiblePrepped, "v", toggleItem)}
+      <div style={_todoS.list} onClick={() => { if (!sort.wasDrag()) run(_todoOpenCmd); }}>
+        {_todoRenderSections(visiblePrepped, "v", toggleItem, sort)}
         {showLow && lowPrepped.length > 0 && (
           <React.Fragment>
             <div style={_todoS.divider} />
-            {_todoRenderSections(lowPrepped, "low", toggleItem)}
+            {_todoRenderSections(lowPrepped, "low", toggleItem, sort)}
           </React.Fragment>
         )}
       </div>
+      {sort.ghost}
     </div>
   );
 };

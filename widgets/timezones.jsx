@@ -14,6 +14,10 @@ const Timezones = ({ output, refresh }) => {
   const [expanded, setExpanded] = React.useState(false);
   const visible = expanded ? zones : zones.slice(-2);
 
+  // Spread label / time / day across the full card width so the row scales with the
+  // column instead of the time cell stretching and stranding the day at the far edge.
+  const rowStyle = { ...s.row, justifyContent: "space-between" };
+
   return (
     <div>
       <div className="clickable" style={{ ...s.label, cursor: "pointer" }} onClick={() => setExpanded(e => !e)}>TEAM TIMEZONES</div>
@@ -29,7 +33,7 @@ const Timezones = ({ output, refresh }) => {
           weekday: "short",
         });
         return (
-          <div key={z.label} style={z.local ? { ...s.row, ...s.localRow } : s.row}>
+          <div key={z.label} style={z.local ? { ...rowStyle, ...s.localRow } : rowStyle}>
             <span style={s.tzLabel}>{z.label}</span>
             <span style={s.tzTime}>{time}</span>
             <span style={s.tzDay}>{day}</span>

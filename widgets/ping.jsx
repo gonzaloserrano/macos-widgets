@@ -106,10 +106,31 @@ const Ping = ({ output, refresh }) => {
   );
 };
 
+// Measure the card's content width so the sparkline fills it instead of a fixed
+// pixel width (the left column was widened, leaving the old 141px chart half-empty).
+// useLayoutEffect measures before paint, so the fallback width is never shown; the
+// ResizeObserver keeps it correct if the column is re-widened later. Übersicht
+// reconciles by React key across its 5s polls, so this observer survives.
+const _usePingWidth = (fallback) => {
+  const ref = React.useRef(null);
+  const [w, setW] = React.useState(fallback);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => { if (el.clientWidth) setW(el.clientWidth); };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, w];
+};
+
 const PingGraph = ({ history, gateway }) => {
   const AXIS_W = 22;
-  const W = 141;
-  const CHART_W = W - AXIS_W;
+  const [wrapRef, W] = _usePingWidth(141);
+  const CHART_W = Math.max(W - AXIS_W, 1);
   const H = 46;
   const PAD = { top: 6, bottom: 6 };
   const gw = "#a8e6a3";
@@ -138,8 +159,8 @@ const PingGraph = ({ history, gateway }) => {
   const dnsPath = toPath("dns");
 
   return (
-    <div>
-      <svg width={W} height={H} style={{ display: "block" }}>
+    <div ref={wrapRef}>
+      <svg width={W} height={H} style={{ display: "block", width: "100%" }}>
         {ticks.map(t => {
           const y = PAD.top + (1 - t / maxMs) * (H - PAD.top - PAD.bottom);
           return (

@@ -25,6 +25,9 @@ const _calS = {
     return { flex: 1, height: "4px", borderRadius: "2px", background: "rgba(255,255,255,0.18)", position: "relative", overflow: "hidden", maskImage: mask, WebkitMaskImage: mask };
   })(),
   barFill: { position: "absolute", right: 0, top: 0, bottom: 0, background: "#ff453a", borderRadius: "2px", transition: "width 0.3s ease-out" },
+  // Painted after the fill so a meeting stays visible over the red remainder.
+  // minWidth keeps a 15-minute call from collapsing to nothing on a ~130px bar.
+  barMeeting: { position: "absolute", top: 0, bottom: 0, minWidth: "2px", background: "#ffd60a", borderRadius: "1px" },
   minsLeft: { fontSize: "10px", fontWeight: 600, color: "#ff453a", fontVariantNumeric: "tabular-nums", flexShrink: 0 },
   row: { display: "flex", marginBottom: "1px" },
   labelCell: { flex: 1, display: "flex", justifyContent: "center", alignItems: "center", height: "12px" },
@@ -84,6 +87,35 @@ const _countByDay = (events) => {
     if (start) counts[start.toDateString()] = (counts[start.toDateString()] || 0) + 1;
   }
   return counts;
+};
+
+// Where today's timed meetings sit on the workday bar, as left/width percentages.
+// All-day events are skipped: they carry no dateTime and would paint the whole bar.
+// Meetings outside 9-18h are dropped, ones that straddle an edge are clipped to it.
+const _meetingMarks = (events, todayStr, startMin, endMin) => {
+  if (!events) return [];
+  const span = endMin - startMin;
+  const marks = [];
+  for (const e of events) {
+    if (!e.start?.dateTime) continue;
+    const start = new Date(e.start.dateTime);
+    if (start.toDateString() !== todayStr) continue;
+    const from = start.getHours() * 60 + start.getMinutes();
+    const end = e.end?.dateTime ? new Date(e.end.dateTime) : null;
+    // No end time means an unbounded event; assume the usual half hour.
+    const to = end && end.toDateString() === todayStr
+      ? end.getHours() * 60 + end.getMinutes()
+      : from + 30;
+    const left = Math.max(0, Math.min(1, (from - startMin) / span));
+    const right = Math.max(0, Math.min(1, (to - startMin) / span));
+    if (right <= 0 || left >= 1 || right <= left) continue;
+    marks.push({
+      left: left * 100,
+      width: (right - left) * 100,
+      title: `${_formatTime(start)} ${e.summary || ""}`.trim(),
+    });
+  }
+  return marks;
 };
 
 const _timeRemaining = (start) => {
@@ -254,6 +286,7 @@ const Calendar = ({ output, refresh }) => {
     : mins >= WORK_END
     ? "done"
     : `${Math.floor(minsLeft / 60)}h ${minsLeft % 60}m left`;
+  const marks = _meetingMarks(events, todayStr, WORK_START, WORK_END);
 
   return (
     <div>
@@ -300,6 +333,9 @@ const Calendar = ({ output, refresh }) => {
         <div style={_calS.barRow}>
           <div style={_calS.bar} title={tooltip}>
             <div style={{ ..._calS.barFill, width: `${remaining * 100}%` }} />
+            {marks.map((m, i) => (
+              <div key={i} title={m.title} style={{ ..._calS.barMeeting, left: `${m.left}%`, width: `${m.width}%` }} />
+            ))}
           </div>
           {minsLeft > 0 && minsLeft < 60 && <div style={_calS.minsLeft}>{minsLeft}m</div>}
         </div>

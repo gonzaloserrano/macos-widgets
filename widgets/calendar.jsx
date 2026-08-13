@@ -27,7 +27,7 @@ const _calS = {
   barFill: { position: "absolute", right: 0, top: 0, bottom: 0, background: "#ff453a", borderRadius: "2px", transition: "width 0.3s ease-out" },
   // Painted after the fill so a meeting stays visible over the red remainder.
   // minWidth keeps a 15-minute call from collapsing to nothing on a ~130px bar.
-  barMeeting: { position: "absolute", top: 0, bottom: 0, minWidth: "2px", background: "#ffd60a", borderRadius: "1px" },
+  barMeeting: { position: "absolute", top: 0, bottom: 0, minWidth: "2px", background: "#40e0d0", borderRadius: "1px" },
   minsLeft: { fontSize: "10px", fontWeight: 600, color: "#ff453a", fontVariantNumeric: "tabular-nums", flexShrink: 0 },
   row: { display: "flex", marginBottom: "1px" },
   labelCell: { flex: 1, display: "flex", justifyContent: "center", alignItems: "center", height: "12px" },

@@ -28,6 +28,7 @@ const _calS = {
   // Painted after the fill so a meeting stays visible over the red remainder.
   // minWidth keeps a 15-minute call from collapsing to nothing on a ~130px bar.
   barMeeting: { position: "absolute", top: 0, bottom: 0, minWidth: "2px", background: "#40e0d0", borderRadius: "1px" },
+  barMeetingPast: { background: "#156e66" },
   minsLeft: { fontSize: "10px", fontWeight: 600, color: "#ff453a", fontVariantNumeric: "tabular-nums", flexShrink: 0 },
   row: { display: "flex", marginBottom: "1px" },
   labelCell: { flex: 1, display: "flex", justifyContent: "center", alignItems: "center", height: "12px" },
@@ -92,7 +93,7 @@ const _countByDay = (events) => {
 // Where today's timed meetings sit on the workday bar, as left/width percentages.
 // All-day events are skipped: they carry no dateTime and would paint the whole bar.
 // Meetings outside 9-18h are dropped, ones that straddle an edge are clipped to it.
-const _meetingMarks = (events, todayStr, startMin, endMin) => {
+const _meetingMarks = (events, todayStr, startMin, endMin, nowMin) => {
   if (!events) return [];
   const span = endMin - startMin;
   const marks = [];
@@ -112,6 +113,7 @@ const _meetingMarks = (events, todayStr, startMin, endMin) => {
     marks.push({
       left: left * 100,
       width: (right - left) * 100,
+      past: to <= nowMin,
       title: `${_formatTime(start)} ${e.summary || ""}`.trim(),
     });
   }
@@ -286,7 +288,7 @@ const Calendar = ({ output, refresh }) => {
     : mins >= WORK_END
     ? "done"
     : `${Math.floor(minsLeft / 60)}h ${minsLeft % 60}m left`;
-  const marks = _meetingMarks(events, todayStr, WORK_START, WORK_END);
+  const marks = _meetingMarks(events, todayStr, WORK_START, WORK_END, mins);
 
   return (
     <div>
@@ -334,7 +336,7 @@ const Calendar = ({ output, refresh }) => {
           <div style={_calS.bar} title={tooltip}>
             <div style={{ ..._calS.barFill, width: `${remaining * 100}%` }} />
             {marks.map((m, i) => (
-              <div key={i} title={m.title} style={{ ..._calS.barMeeting, left: `${m.left}%`, width: `${m.width}%` }} />
+              <div key={i} title={m.title} style={{ ..._calS.barMeeting, ...(m.past ? _calS.barMeetingPast : null), left: `${m.left}%`, width: `${m.width}%` }} />
             ))}
           </div>
           {minsLeft > 0 && minsLeft < 60 && <div style={_calS.minsLeft}>{minsLeft}m</div>}

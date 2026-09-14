@@ -1,10 +1,12 @@
 const _todoCmd = `cat ~/TODO.md 2>/dev/null || echo ""`;
 
 // Clicking opens ~/TODO.md in vi inside a cmux workspace named "TODO". Reuse an existing
-// one (select it, then raise its window) instead of spawning a duplicate on every click;
-// only create a fresh workspace when none is found. Match on custom_title, which is the
-// name set via --name and, unlike title, is never decorated with activity glyphs.
-const _todoOpenCmd = `j=$(/opt/homebrew/bin/cmux workspace list --json); r=$(printf '%s' "$j" | /opt/homebrew/bin/jq -r '[.workspaces[]|select(.custom_title=="TODO")|.ref][0]//empty'); if [ -n "$r" ]; then w=$(printf '%s' "$j" | /opt/homebrew/bin/jq -r .window_ref); CMUX_QUIET=1 /opt/homebrew/bin/cmux workspace select "$r" && CMUX_QUIET=1 /opt/homebrew/bin/cmux focus-window --window "$w"; else CMUX_QUIET=1 /opt/homebrew/bin/cmux workspace create --name TODO --cwd ~ --command "vi ~/TODO.md" --focus true; fi`;
+// one instead of spawning a duplicate on every click: select it, raise its window, then
+// activate the app via `open -b`, since focus-window only reorders windows inside cmux and
+// does not switch macOS focus away from Übersicht. Only create a fresh workspace when none
+// is found. Match on custom_title, which is the name set via --name and, unlike title, is
+// never decorated with activity glyphs.
+const _todoOpenCmd = `j=$(/opt/homebrew/bin/cmux workspace list --json); r=$(printf '%s' "$j" | /opt/homebrew/bin/jq -r '[.workspaces[]|select(.custom_title=="TODO")|.ref][0]//empty'); if [ -n "$r" ]; then w=$(printf '%s' "$j" | /opt/homebrew/bin/jq -r .window_ref); CMUX_QUIET=1 /opt/homebrew/bin/cmux workspace select "$r" && CMUX_QUIET=1 /opt/homebrew/bin/cmux focus-window --window "$w" && /usr/bin/open -b com.cmuxterm.app; else CMUX_QUIET=1 /opt/homebrew/bin/cmux workspace create --name TODO --cwd ~ --command "vi ~/TODO.md" --focus true; fi`;
 
 // Rewrite ~/TODO.md wholesale after a reorder. The content goes through base64 so no
 // line of the file can be reinterpreted as shell syntax, and it lands via a temp file

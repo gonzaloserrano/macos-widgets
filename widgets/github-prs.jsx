@@ -13,7 +13,7 @@ def query(q):
         except: return None
     return {"total":s["issueCount"],"prs":[{"num":n["number"],"title":n["title"],"repo":n["repository"]["name"],"url":n["url"],"created":n["createdAt"],"review":n.get("reviewDecision"),"ci":ci(n)} for n in s["nodes"]]}
 def query_reviews(q):
-    gql = "{viewer{login} search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:5){issueCount nodes{...on PullRequest{number title url createdAt author{login} repository{name isArchived}reviewDecision commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}} reviews(last:50){nodes{author{login}submittedAt}} comments(last:50){nodes{author{login}createdAt}}}}}}"
+    gql = "{viewer{login} search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:25){issueCount nodes{...on PullRequest{number title url createdAt author{login} repository{name isArchived}reviewDecision commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}} reviews(last:50){nodes{author{login}submittedAt}} comments(last:50){nodes{author{login}createdAt}}}}}}"
     d = run_gql(gql)
     if not d: return {"total":0,"prs":[]}
     me = d["data"]["viewer"]["login"]

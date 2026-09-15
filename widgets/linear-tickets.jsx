@@ -9,7 +9,7 @@ else:
     q = """{ viewer {
         organization { urlKey }
         assignedIssues(
-            filter: { state: { type: { nin: ["completed","cancelled"] } } }
+            filter: { state: { type: { nin: ["completed","canceled","duplicate"] } } }
             first: 20
             orderBy: updatedAt
         ) { nodes {
@@ -35,7 +35,7 @@ const stateIcon = {
   unstarted: { icon: "○", color: "#8b8b8b" },
   started: { icon: "◐", color: "#f2c94c" },
   completed: { icon: "✓", color: "#5e6ad2" },
-  cancelled: { icon: "✕", color: "#8b8b8b" },
+  canceled: { icon: "✕", color: "#8b8b8b" },
 };
 
 const priorityIcon = { 1: "🔴", 2: "🟠", 3: "🟡", 4: "🔵" };

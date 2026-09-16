@@ -18,12 +18,18 @@ const _calS = {
     cursor: "pointer",
     flexShrink: 0,
   },
-  // The workday bar doubles as the separator, so it costs no vertical space of its own.
-  barRow: { display: "flex", alignItems: "center", gap: "6px", margin: "8px 0" },
-  bar: (() => {
-    const mask = "linear-gradient(to right, #000 0, #000 calc(25% - 1px), transparent calc(25% - 1px), transparent calc(25% + 1px), #000 calc(25% + 1px), #000 calc(50% - 1px), transparent calc(50% - 1px), transparent calc(50% + 1px), #000 calc(50% + 1px), #000 calc(75% - 1px), transparent calc(75% - 1px), transparent calc(75% + 1px), #000 calc(75% + 1px), #000 100%)";
-    return { flex: 1, height: "4px", borderRadius: "2px", background: "rgba(255,255,255,0.18)", position: "relative", overflow: "hidden", maskImage: mask, WebkitMaskImage: mask };
-  })(),
+  // The workday bar doubles as the separator, so it costs little vertical space.
+  // The start-time labels below it take 12px; the bottom margin gives half of that back.
+  barRow: { display: "flex", alignItems: "center", gap: "6px", margin: "8px 0 4px" },
+  // Bar and hour labels share one column so they stay aligned when the minutes-left
+  // text sits to the right and narrows the bar.
+  barCol: { flex: 1, minWidth: 0 },
+  // The mask (hour notches) is generated per render from the workday span.
+  bar: { height: "4px", borderRadius: "2px", background: "rgba(255,255,255,0.18)", position: "relative", overflow: "hidden" },
+  // Meeting start times under the bar, in the same turquoise as the marks they label.
+  hours: { position: "relative", height: "10px", marginTop: "2px" },
+  hour: { position: "absolute", top: 0, fontSize: "8px", fontWeight: 600, lineHeight: "10px", color: "#40e0d0", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" },
+  hourPast: { color: "#156e66" },
   barFill: { position: "absolute", right: 0, top: 0, bottom: 0, background: "#ff453a", borderRadius: "2px", transition: "width 0.3s ease-out" },
   // Painted after the fill so a meeting stays visible over the red remainder.
   // minWidth keeps a 15-minute call from collapsing to nothing on a ~130px bar.
@@ -115,9 +121,42 @@ const _meetingMarks = (events, todayStr, startMin, endMin, nowMin) => {
       width: (right - left) * 100,
       past: to <= nowMin,
       title: `${_formatTime(start)} ${e.summary || ""}`.trim(),
+      // "10" on the hour, "10:30" otherwise: the label row has no room for AM/PM.
+      startLabel: start.getMinutes() === 0
+        ? `${start.getHours()}`
+        : `${start.getHours()}:${String(start.getMinutes()).padStart(2, "0")}`,
     });
   }
   return marks;
+};
+
+// Start-time labels under the bar, one per meeting mark, centred on the mark's left
+// edge. A label closer than MIN_GAP (in bar percent, ~1h20 on a 9h day) to the one
+// before it is dropped: on a ~130px bar two labels that close would overlap, and the
+// mark itself still carries the time in its tooltip.
+const _markLabels = (marks) => {
+  const MIN_GAP = 15;
+  const labels = [];
+  let lastPct = -Infinity;
+  for (const m of [...marks].sort((a, b) => a.left - b.left)) {
+    if (m.left - lastPct < MIN_GAP) continue;
+    labels.push({ text: m.startLabel, pct: m.left, past: m.past });
+    lastPct = m.left;
+  }
+  return labels;
+};
+
+// A 2px gap at every full hour, so the bar reads as one segment per hour and the
+// labels below sit under a notch.
+const _hourMask = (startMin, endMin) => {
+  const span = endMin - startMin;
+  const stops = ["#000 0"];
+  for (let m = startMin + 60; m < endMin; m += 60) {
+    const pct = ((m - startMin) / span) * 100;
+    stops.push(`#000 calc(${pct}% - 1px)`, `transparent calc(${pct}% - 1px)`, `transparent calc(${pct}% + 1px)`, `#000 calc(${pct}% + 1px)`);
+  }
+  stops.push("#000 100%");
+  return `linear-gradient(to right, ${stops.join(", ")})`;
 };
 
 const _timeRemaining = (start) => {
@@ -289,6 +328,8 @@ const Calendar = ({ output, refresh }) => {
     ? "done"
     : `${Math.floor(minsLeft / 60)}h ${minsLeft % 60}m left`;
   const marks = _meetingMarks(events, todayStr, WORK_START, WORK_END, mins);
+  const markLabels = _markLabels(marks);
+  const mask = _hourMask(WORK_START, WORK_END);
 
   return (
     <div>
@@ -333,11 +374,27 @@ const Calendar = ({ output, refresh }) => {
         <div style={_calS.sep} />
       ) : (
         <div style={_calS.barRow}>
-          <div style={_calS.bar} title={tooltip}>
-            <div style={{ ..._calS.barFill, width: `${remaining * 100}%` }} />
-            {marks.map((m, i) => (
-              <div key={i} title={m.title} style={{ ..._calS.barMeeting, ...(m.past ? _calS.barMeetingPast : null), left: `${m.left}%`, width: `${m.width}%` }} />
-            ))}
+          <div style={_calS.barCol}>
+            <div style={{ ..._calS.bar, maskImage: mask, WebkitMaskImage: mask }} title={tooltip}>
+              <div style={{ ..._calS.barFill, width: `${remaining * 100}%` }} />
+              {marks.map((m, i) => (
+                <div key={i} title={m.title} style={{ ..._calS.barMeeting, ...(m.past ? _calS.barMeetingPast : null), left: `${m.left}%`, width: `${m.width}%` }} />
+              ))}
+            </div>
+            {markLabels.length > 0 && (
+              <div style={_calS.hours}>
+                {markLabels.map((h) => (
+                  // Labels near either end anchor to the bar edge so they never overflow it.
+                  <span key={h.pct} style={{
+                    ..._calS.hour,
+                    ...(h.past ? _calS.hourPast : null),
+                    ...(h.pct < 8 ? { left: 0 }
+                      : h.pct > 92 ? { right: 0 }
+                      : { left: `${h.pct}%`, transform: "translateX(-50%)" }),
+                  }}>{h.text}</span>
+                ))}
+              </div>
+            )}
           </div>
           {minsLeft > 0 && minsLeft < 60 && <div style={_calS.minsLeft}>{minsLeft}m</div>}
         </div>

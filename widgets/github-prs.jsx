@@ -38,7 +38,7 @@ def query_reviews(q):
         prs.append({"num":n["number"],"title":n["title"],"repo":n["repository"]["name"],"url":n["url"],"created":n["createdAt"],"author":n.get("author",{}).get("login",""),"review":n.get("reviewDecision"),"ci":ci(n)})
     return {"total":len(prs),"prs":prs}
 mine = query("is:pr is:open author:@me sort:created-desc")
-revs = query_reviews("is:pr is:open draft:false review-requested:@me -author:timescale-automation -author:app/github-actions -author:app/dependabot")
+revs = query_reviews("is:pr is:open draft:false review-requested:@me -author:timescale-automation -author:app/github-actions -author:app/dependabot -author:app/renovate")
 print(json.dumps({"mine":mine,"reviews":revs}))
 '`;
 

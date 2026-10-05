@@ -47,7 +47,8 @@ const _todoMoveSection = (lines, from, to, before) => {
   return rest;
 };
 
-const _todoCheckRe = /^(\s*)-\s*\[([ xX])\]\s*(.*)$/;
+// `[o]` marks the item being worked on right now: unchecked, but rendered highlighted.
+const _todoCheckRe = /^(\s*)-\s*\[([ xXoO])\]\s*(.*)$/;
 const _todoBulletRe = /^(\s*)-\s+(.*)$/;
 // `bullet` marks real `- ` list lines. Plain text lines (notes in the low-prio block)
 // also render as rows, but they are not draggable: a section takes its title from a
@@ -55,10 +56,13 @@ const _todoBulletRe = /^(\s*)-\s+(.*)$/;
 // silently promote it to that section's title.
 const parseTodoLine = (line) => {
   const c = line.match(_todoCheckRe);
-  if (c) return { depth: Math.floor(c[1].length / 2), checked: c[2].toLowerCase() === "x", text: c[3], bullet: true };
+  if (c) {
+    const mark = c[2].toLowerCase();
+    return { depth: Math.floor(c[1].length / 2), checked: mark === "x", active: mark === "o", text: c[3], bullet: true };
+  }
   const b = line.match(_todoBulletRe);
-  if (b) return { depth: Math.floor(b[1].length / 2), checked: null, text: b[2], bullet: true };
-  return { depth: 0, checked: null, text: line.trim(), bullet: false };
+  if (b) return { depth: Math.floor(b[1].length / 2), checked: null, active: false, text: b[2], bullet: true };
+  return { depth: 0, checked: null, active: false, text: line.trim(), bullet: false };
 };
 
 // Per-user chip colors. Every distinct @user gets its own hue: we collect all
@@ -258,6 +262,11 @@ const _todoS = {
   checkbox: { margin: "2px 0 0", flexShrink: 0, accentColor: "#6eb5ff", width: "11px", height: "11px", cursor: "pointer" },
   text: { wordBreak: "break-word", minWidth: 0 },
   done: { textDecoration: "line-through", color: "rgba(255,255,255,0.4)" },
+  // In-progress row: amber bar and tint. The negative margin cancels the padding so the
+  // row's text stays aligned with its siblings.
+  active: { background: "rgba(255,214,10,0.14)", boxShadow: "inset 2px 0 0 #ffd60a", borderRadius: "3px", padding: "0 2px 0 4px" },
+  activeText: { color: "#fff" },
+  activeMark: { color: "#ffd60a", flexShrink: 0, width: "11px", fontSize: "11px", lineHeight: "1.35", cursor: "pointer", textAlign: "center" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" },
   toggle: { fontSize: "10px", fontWeight: 600, letterSpacing: "0.5px", color: "rgba(255,255,255,0.45)", cursor: "pointer", padding: "0 2px" },
   divider: { height: "1px", background: "rgba(255,255,255,0.08)", margin: "4px 0" },
@@ -330,11 +339,21 @@ const _todoNumber = (items) => {
 };
 
 const _todoRow = (item, key, onToggle) => (
-  <div key={key} style={{ ..._todoS.row, marginLeft: `${item.depth * 10}px` }}>
+  <div key={key} style={{
+    ..._todoS.row,
+    ...(item.active ? _todoS.active : null),
+    marginLeft: `${item.depth * 10 - (item.active ? 4 : 0)}px`,
+  }}>
     {item.label !== null
       ? <span style={_todoS.idx}>{item.label}</span>
       : <span style={_todoS.childMark}>◦</span>}
-    {item.checked !== null && (
+    {item.active ? (
+      <span
+        title="In progress: click to mark done"
+        onClick={(e) => { e.stopPropagation(); onToggle(item); }}
+        style={_todoS.activeMark}
+      >◐</span>
+    ) : item.checked !== null && (
       <input
         type="checkbox"
         checked={item.checked}
@@ -343,7 +362,7 @@ const _todoRow = (item, key, onToggle) => (
         style={_todoS.checkbox}
       />
     )}
-    <span style={{ ..._todoS.text, ...(item.checked ? _todoS.done : null) }}>{renderTodoText(item.text)}</span>
+    <span style={{ ..._todoS.text, ...(item.checked ? _todoS.done : null), ...(item.active ? _todoS.activeText : null) }}>{renderTodoText(item.text)}</span>
   </div>
 );
 
@@ -432,8 +451,10 @@ const Todo = ({ output, refresh }) => {
   const visibleSections = _todoSections(visiblePart);
   const lowSections = _todoSections(lowPart);
 
-  const doneCount = [...visibleSections, ...lowSections]
-    .flatMap(sec => sec.items).filter(i => i.checked === true).length;
+  const allItems = [...visibleSections, ...lowSections].flatMap(sec => sec.items);
+  const doneCount = allItems.filter(i => i.checked === true).length;
+  // Counts the low-prio part too, so in-progress work there is not hidden by the collapse.
+  const activeCount = allItems.filter(i => i.active).length;
 
   // Drop done items (and their descendants) when hideDone is on; keep a section if it
   // still has items, or was only ever a title.
@@ -445,9 +466,10 @@ const Todo = ({ output, refresh }) => {
   const lowPrepped = prep(lowSections);
   const lowCount = lowPrepped.flatMap(sec => sec.items).filter(i => i.depth === 0).length;
 
+  // [ ] → [x], [o] → [x], [x] → [ ].
   const toggleItem = (item) => {
     const newChar = item.checked ? " " : "x";
-    run(`sed -i '' '${item.srcLine}s/\\[[xX ]\\]/[${newChar}]/' ~/TODO.md`).then(refresh);
+    run(`sed -i '' '${item.srcLine}s/\\[[xXoO ]\\]/[${newChar}]/' ~/TODO.md`).then(refresh);
   };
 
   return (
@@ -455,6 +477,9 @@ const Todo = ({ output, refresh }) => {
       <div style={_todoS.header}>
         <div className="clickable" style={{ ...s.label, cursor: "pointer", marginBottom: 0 }} onClick={refresh}>TODO</div>
         <div style={{ display: "flex", gap: "6px" }}>
+          {activeCount > 0 && (
+            <div style={{ ..._todoS.toggle, color: "#ffd60a", cursor: "default" }} title="In progress">● {activeCount}</div>
+          )}
           {doneCount > 0 && (
             <div
               className="clickable"

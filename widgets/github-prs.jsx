@@ -1,26 +1,35 @@
+// The org the work-only toggle keeps. Repos of any other owner (personal, community) hide.
+const _ghWorkOrg = "timescale";
+
+// "mine" also asks for a count of the same search scoped to the work org, so with the
+// work-only toggle on the +N chip still counts only work PRs beyond the 25 fetched.
+//
+// "commented" is every open PR of someone else that I commented on or reviewed, minus the
+// ones "reviews" shows. Only the ISSUE_ADVANCED search type accepts the OR; plain ISSUE
+// returns nothing for it. A PR the review list hides because I already touched it lands
+// here instead, so it stays visible while the ball is in the author's court.
 const _ghPrCmd = `python3 -c '
 import json, subprocess
 def run_gql(gql):
     r = subprocess.run(["/opt/homebrew/bin/gh","api","graphql","-f","query=" + gql], capture_output=True, text=True)
     return json.loads(r.stdout) if r.returncode == 0 else None
+def ci(n):
+    try: return n["commits"]["nodes"][0]["commit"]["statusCheckRollup"]["state"]
+    except: return None
+def row(n):
+    return {"num":n["number"],"title":n["title"],"repo":n["repository"]["name"],"owner":n["repository"]["owner"]["login"],"url":n["url"],"created":n["createdAt"],"author":n.get("author",{}).get("login",""),"review":n.get("reviewDecision"),"ci":ci(n)}
 def query(q):
-    gql = "{search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:25){issueCount nodes{...on PullRequest{number title url createdAt repository{name}reviewDecision commits(last:1){nodes{commit{statusCheckRollup{state}}}}}}}}"
+    gql = "{all:search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:25){issueCount nodes{...on PullRequest{number title url createdAt repository{name owner{login}}reviewDecision commits(last:1){nodes{commit{statusCheckRollup{state}}}}}}} work:search(query:" + chr(34) + q + " org:${_ghWorkOrg}" + chr(34) + ",type:ISSUE,first:1){issueCount}}"
     d = run_gql(gql)
-    if not d: return {"total":0,"prs":[]}
-    s = d["data"]["search"]
-    def ci(n):
-        try: return n["commits"]["nodes"][0]["commit"]["statusCheckRollup"]["state"]
-        except: return None
-    return {"total":s["issueCount"],"prs":[{"num":n["number"],"title":n["title"],"repo":n["repository"]["name"],"url":n["url"],"created":n["createdAt"],"review":n.get("reviewDecision"),"ci":ci(n)} for n in s["nodes"]]}
+    if not d: return {"total":0,"workTotal":0,"prs":[]}
+    s = d["data"]["all"]
+    return {"total":s["issueCount"],"workTotal":d["data"]["work"]["issueCount"],"prs":[{"num":n["number"],"title":n["title"],"repo":n["repository"]["name"],"owner":n["repository"]["owner"]["login"],"url":n["url"],"created":n["createdAt"],"review":n.get("reviewDecision"),"ci":ci(n)} for n in s["nodes"]]}
 def query_reviews(q):
-    gql = "{viewer{login} search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:25){issueCount nodes{...on PullRequest{number title url createdAt author{login} repository{name isArchived}reviewDecision commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}} reviews(last:50){nodes{author{login}submittedAt}} comments(last:50){nodes{author{login}createdAt}}}}}}"
+    gql = "{viewer{login} search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:25){issueCount nodes{...on PullRequest{number title url createdAt author{login} repository{name owner{login} isArchived}reviewDecision commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}} reviews(last:50){nodes{author{login}submittedAt}} comments(last:50){nodes{author{login}createdAt}}}}}}"
     d = run_gql(gql)
     if not d: return {"total":0,"prs":[]}
     me = d["data"]["viewer"]["login"]
     s = d["data"]["search"]
-    def ci(n):
-        try: return n["commits"]["nodes"][0]["commit"]["statusCheckRollup"]["state"]
-        except: return None
     prs = []
     for n in s["nodes"]:
         if n.get("repository",{}).get("isArchived"): continue
@@ -35,12 +44,22 @@ def query_reviews(q):
             ts = cm.get("createdAt","")
             if ts and ts > my_last_touch: my_last_touch = ts
         if my_last_touch and last_commit and my_last_touch >= last_commit: continue
-        prs.append({"num":n["number"],"title":n["title"],"repo":n["repository"]["name"],"url":n["url"],"created":n["createdAt"],"author":n.get("author",{}).get("login",""),"review":n.get("reviewDecision"),"ci":ci(n)})
+        prs.append(row(n))
+    return {"total":len(prs),"prs":prs}
+def query_commented(q, skip):
+    gql = "{search(query:" + chr(34) + q + chr(34) + ",type:ISSUE_ADVANCED,first:25){nodes{...on PullRequest{number title url createdAt author{login} repository{name owner{login} isArchived}reviewDecision commits(last:1){nodes{commit{statusCheckRollup{state}}}}}}}}"
+    d = run_gql(gql)
+    if not d: return {"total":0,"prs":[]}
+    prs = [row(n) for n in d["data"]["search"]["nodes"] if n["url"] not in skip and not n["repository"]["isArchived"]]
     return {"total":len(prs),"prs":prs}
 mine = query("is:pr is:open author:@me sort:created-desc")
 revs = query_reviews("is:pr is:open draft:false review-requested:@me -author:timescale-automation -author:app/github-actions -author:app/dependabot -author:app/renovate")
-print(json.dumps({"mine":mine,"reviews":revs}))
+comm = query_commented("is:pr is:open -author:@me (commenter:@me OR reviewed-by:@me)", {p["url"] for p in revs["prs"]})
+print(json.dumps({"mine":mine,"reviews":revs,"commented":comm}))
 '`;
+
+// Opens the commenter: half of the search only.
+const _ghCommentedUrl = "https://github.com/pulls?q=is%3Aopen+is%3Apr+-author%3A%40me+commenter%3A%40me";
 
 // Hues are spaced evenly across the repos actually on screen, so no two land close
 // enough to confuse. Deliberately not a hash of the repo name: with ~13 repos a hash
@@ -127,24 +146,39 @@ const _ghS = {
 const GithubPRs = ({ output, refresh }) => {
   const [redacted, setRedacted] = React.useState(false);
   const [collapsed, setCollapsed] = usePersistedState("collapse:ghpr", false);
+  const [workOnly, setWorkOnly] = usePersistedState("workonly:ghpr", false);
+  const [legends, setLegends] = usePersistedState("legends:ghpr", false);
   const [hover, setHover] = React.useState(null);
   const [brush, setBrush] = React.useState(null);
   const [pinned, setPinned] = React.useState(null);
 
-  let mine = { total: 0, prs: [] }, reviews = { total: 0, prs: [] };
+  let mine = { total: 0, prs: [] }, reviews = { total: 0, prs: [] }, commented = { total: 0, prs: [] };
   try {
     const data = JSON.parse(output);
     mine = data.mine || mine;
     reviews = data.reviews || reviews;
+    commented = data.commented || commented;
   } catch {
     return <div style={s.empty}>{output || "GitHub unavailable"}</div>;
   }
 
-  if (mine.total === 0 && reviews.total === 0) {
+  if (mine.total === 0 && reviews.total === 0 && commented.total === 0) {
     return <div style={s.empty}>No PRs</div>;
   }
 
-  const allPrs = [...mine.prs, ...reviews.prs];
+  // Filtered before anything else reads the PRs, so repo colors, redaction numbers, counters
+  // and the collapsed summary all describe only what is on screen. The review and commented
+  // totals are already the length of their lists, so the filtered list length replaces them.
+  if (workOnly) {
+    const isWork = (pr) => pr.owner === _ghWorkOrg;
+    mine = { total: mine.workTotal, prs: mine.prs.filter(isWork) };
+    const reviewPrs = reviews.prs.filter(isWork);
+    reviews = { total: reviewPrs.length, prs: reviewPrs };
+    const commentedPrs = commented.prs.filter(isWork);
+    commented = { total: commentedPrs.length, prs: commentedPrs };
+  }
+
+  const allPrs = [...mine.prs, ...reviews.prs, ...commented.prs];
   const colors = repoColorMap(allPrs);
   const repos = [...new Set(allPrs.map((p) => p.repo))];
   const redactMap = {};
@@ -187,7 +221,9 @@ const GithubPRs = ({ output, refresh }) => {
   };
 
   // A chip per PR: the number identifies it, the fill/text color groups it by repo, the
-  // underline says whose turn it is. Nineteen fit in three rows of the 262px card.
+  // underline says whose turn it is. Nineteen fit in three rows of the 262px card. The
+  // tooltip carries author and title too, since with the legends hidden there is no strip
+  // to show them.
   const renderChips = (prs, total, moreUrl, block, labels) => (
     <div style={_ghS.grid} onMouseLeave={() => setHover(null)}>
       {byNewest(prs).map((pr) => {
@@ -196,7 +232,7 @@ const GithubPRs = ({ output, refresh }) => {
           <a
             key={pr.url}
             href={pr.url}
-            title={`${repo(pr)} #${pr.num} · ${labels[_ghState(pr)]} · ${_ghAge(pr.created)}`}
+            title={`${repo(pr)} #${pr.num} · ${labels[_ghState(pr)]} · ${_ghAge(pr.created)}${pr.author ? ` · @${pr.author}` : ""}${redacted ? "" : ` · ${pr.title}`}`}
             style={{
               ..._ghS.chip, color: c.fg, background: c.bg,
               borderBottomColor: _ghStateColor[_ghState(pr)],
@@ -259,12 +295,43 @@ const GithubPRs = ({ output, refresh }) => {
     );
   };
 
-  const summary = [mine.total > 0 && `${mine.total} mine`, reviews.total > 0 && `${reviews.total} review`].filter(Boolean).join(", ");
+  // One block per bucket, absent while its bucket is empty. The legend rows under the chips
+  // only show with the legends toggle on.
+  const section = (block, title, url, { prs, total }, labels, first) => total > 0 && (
+    <div>
+      <div className="clickable" style={{ ...s.label, marginTop: first ? "2px" : "10px", fontSize: "9px", cursor: "pointer" }} onClick={() => run(`open '${url}'`)}>{title} ({total})</div>
+      {renderChips(prs, total, url, block, labels)}
+      {legends && prefixLine(block, prs)}
+      {legends && strip(block, prs, labels)}
+    </div>
+  );
+
+  const summary = [
+    mine.total > 0 && `${mine.total} mine`,
+    reviews.total > 0 && `${reviews.total} review`,
+    commented.total > 0 && `${commented.total} commented`,
+  ].filter(Boolean).join(", ");
 
   return (
     <div style={{ position: "relative" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-        <div className="clickable" style={{ ...s.label, cursor: "pointer", flex: 1, marginBottom: 0 }} onClick={refresh}>GITHUB PRs{collapsed ? ` · ${summary}` : ""}</div>
+        <div className="clickable" style={{ ...s.label, cursor: "pointer", flex: 1, marginBottom: 0 }} onClick={refresh}>GITHUB PRs{collapsed && summary ? ` · ${summary}` : ""}</div>
+        <span
+          className="clickable"
+          title={`Only ${_ghWorkOrg} repos`}
+          style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.5px", cursor: "pointer", color: workOnly ? "#6eb5ff" : "rgba(255,255,255,0.2)", lineHeight: "1" }}
+          onClick={() => setWorkOnly(!workOnly)}
+        >TS</span>
+        <span
+          className="clickable"
+          title="Conventional-commit and state rows"
+          style={{ fontSize: "12px", cursor: "pointer", color: legends ? "#6eb5ff" : "rgba(255,255,255,0.2)", lineHeight: "1" }}
+          onClick={() => {
+            // A pinned counter would keep greying out pills with no counter left to unpin it.
+            setLegends(!legends);
+            setPinned(null);
+          }}
+        >≡</span>
         <span
           className="clickable"
           style={{ fontSize: "12px", cursor: "pointer", color: redacted ? "#6eb5ff" : "rgba(255,255,255,0.2)", lineHeight: "1" }}
@@ -278,22 +345,12 @@ const GithubPRs = ({ output, refresh }) => {
       </div>
       {!collapsed && (
         <>
-          {mine.total > 0 && (
-            <div>
-              <div className="clickable" style={{ ...s.label, marginTop: "2px", fontSize: "9px", cursor: "pointer" }} onClick={() => run('open https://github.com/pulls')}>MY PRs ({mine.total})</div>
-              {renderChips(mine.prs, mine.total, "https://github.com/pulls", "mine", _ghMineLabel)}
-              {prefixLine("mine", mine.prs)}
-              {strip("mine", mine.prs, _ghMineLabel)}
-            </div>
+          {mine.total === 0 && reviews.total === 0 && commented.total === 0 && (
+            <div style={{ ...s.empty, marginTop: "4px" }}>No {_ghWorkOrg} PRs</div>
           )}
-          {reviews.total > 0 && (
-            <div>
-              <div className="clickable" style={{ ...s.label, marginTop: mine.total > 0 ? "10px" : "2px", fontSize: "9px", cursor: "pointer" }} onClick={() => run('open https://github.com/pulls/review-requested')}>TO REVIEW ({reviews.total})</div>
-              {renderChips(reviews.prs, reviews.total, "https://github.com/pulls/review-requested", "review", _ghReviewLabel)}
-              {prefixLine("review", reviews.prs)}
-              {strip("review", reviews.prs, _ghReviewLabel)}
-            </div>
-          )}
+          {section("mine", "MY PRs", "https://github.com/pulls", mine, _ghMineLabel, true)}
+          {section("review", "TO REVIEW", "https://github.com/pulls/review-requested", reviews, _ghReviewLabel, mine.total === 0)}
+          {section("commented", "COMMENTED", _ghCommentedUrl, commented, _ghReviewLabel, mine.total === 0 && reviews.total === 0)}
         </>
       )}
     </div>

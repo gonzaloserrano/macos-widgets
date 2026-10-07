@@ -122,10 +122,11 @@ const _ghS = {
     borderBottomWidth: "2px", borderBottomStyle: "solid",
     transition: "opacity 0.12s, filter 0.12s",
   },
+  tally: { fontSize: "10px", marginTop: "3px", lineHeight: "13px", color: "rgba(255,255,255,0.45)" },
   // Exactly two lines, always: a title wraps onto the second and is cut there, so the card
   // height never moves whichever chip is hovered.
   detail: {
-    fontSize: "10px", marginTop: "3px", height: "26px", lineHeight: "13px",
+    fontSize: "10px", marginTop: "8px", height: "26px", lineHeight: "13px",
     color: "rgba(255,255,255,0.45)", wordBreak: "break-word", overflow: "hidden",
   },
   clamp2: { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden" },
@@ -221,9 +222,8 @@ const GithubPRs = ({ output, refresh }) => {
   };
 
   // A chip per PR: the number identifies it, the fill/text color groups it by repo, the
-  // underline says whose turn it is. Nineteen fit in three rows of the 262px card. The
-  // tooltip carries author and title too, since with the legends hidden there is no strip
-  // to show them.
+  // underline says whose turn it is. Nineteen fit in three rows of the 262px card. Hovering
+  // one fills the detail line at the bottom of the card.
   const renderChips = (prs, total, moreUrl, block, labels) => (
     <div style={_ghS.grid} onMouseLeave={() => setHover(null)}>
       {byNewest(prs).map((pr) => {
@@ -232,13 +232,12 @@ const GithubPRs = ({ output, refresh }) => {
           <a
             key={pr.url}
             href={pr.url}
-            title={`${repo(pr)} #${pr.num} · ${labels[_ghState(pr)]} · ${_ghAge(pr.created)}${pr.author ? ` · @${pr.author}` : ""}${redacted ? "" : ` · ${pr.title}`}`}
             style={{
               ..._ghS.chip, color: c.fg, background: c.bg,
               borderBottomColor: _ghStateColor[_ghState(pr)],
               ...(faded(pr, block) ? _ghS.faded : null),
             }}
-            onMouseEnter={() => setHover({ pr, block })}
+            onMouseEnter={() => setHover({ url: pr.url, labels })}
           >{approved(pr) ? "✓" : ""}{pr.num}</a>
         );
       })}
@@ -251,28 +250,39 @@ const GithubPRs = ({ output, refresh }) => {
     </div>
   );
 
-  // One strip per block: it tallies that block's states, and swaps to the full title of a
-  // chip only while a chip of the same block is hovered, so hovering my PRs leaves the
-  // review tally standing. That title is what buys the right to render no titles at all.
-  // The author only shows for review PRs, where whose PR it is matters.
+  // One tally of states per block.
   const strip = (block, prs, labels) => (
-    <div style={_ghS.detail}>
-      {hover && hover.block === block
-        ? <span style={_ghS.clamp2}>
-          <span style={{ color: colors[hover.pr.repo].fg }}>{repo(hover.pr)} #{hover.pr.num}</span>
-          {hover.pr.author ? ` @${hover.pr.author}` : ""} · {_ghAge(hover.pr.created)}{redacted ? "" : ` · ${hover.pr.title}`}
-        </span>
-        : ["act", "wait", "ready", "idle"]
-          .map(k => ({ k, n: prs.filter(pr => _ghState(pr) === k).length }))
-          .filter(x => x.n > 0)
-          .map(({ k, n }, i) => (
-            <span key={k}>
-              {i > 0 ? " · " : ""}
-              <span {...counterProps(block, "state", k)}>
-                <span style={{ color: _ghStateColor[k] }}>{n}</span> {labels[k]}
-              </span>
+    <div style={_ghS.tally}>
+      {["act", "wait", "ready", "idle"]
+        .map(k => ({ k, n: prs.filter(pr => _ghState(pr) === k).length }))
+        .filter(x => x.n > 0)
+        .map(({ k, n }, i) => (
+          <span key={k}>
+            {i > 0 ? " · " : ""}
+            <span {...counterProps(block, "state", k)}>
+              <span style={{ color: _ghStateColor[k] }}>{n}</span> {labels[k]}
             </span>
-          ))}
+          </span>
+        ))}
+    </div>
+  );
+
+  // The hovered chip's full title, whichever block it sits in. That title is what buys the
+  // right to render no titles at all. The line keeps its height with nothing hovered: the
+  // stack is pinned to the bottom of the screen, so a line that appeared on hover would push
+  // the chips up from under the pointer and the hover would flicker. Looked up by URL, so a
+  // refresh that drops the hovered PR empties the line. Only review and commented PRs carry
+  // an author, the blocks where whose PR it is matters.
+  const hovered = hover && allPrs.find((pr) => pr.url === hover.url);
+  const detail = (
+    <div style={_ghS.detail}>
+      {hovered && (
+        <span style={_ghS.clamp2}>
+          <span style={{ color: colors[hovered.repo].fg }}>{repo(hovered)} #{hovered.num}</span>
+          {" · "}<span style={{ color: _ghStateColor[_ghState(hovered)] }}>{hover.labels[_ghState(hovered)]}</span>
+          {` · ${_ghAge(hovered.created)}`}{hovered.author ? ` · @${hovered.author}` : ""}{redacted ? "" : ` · ${hovered.title}`}
+        </span>
+      )}
     </div>
   );
 
@@ -351,6 +361,7 @@ const GithubPRs = ({ output, refresh }) => {
           {section("mine", "MY PRs", "https://github.com/pulls", mine, _ghMineLabel, true)}
           {section("review", "TO REVIEW", "https://github.com/pulls/review-requested", reviews, _ghReviewLabel, mine.total === 0)}
           {section("commented", "COMMENTED", _ghCommentedUrl, commented, _ghReviewLabel, mine.total === 0 && reviews.total === 0)}
+          {allPrs.length > 0 && detail}
         </>
       )}
     </div>

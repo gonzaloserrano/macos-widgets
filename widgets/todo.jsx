@@ -101,12 +101,20 @@ const _todoUserColor = (name) => {
 // Linear id) so the matched URL can never contain a shell metacharacter: it is passed
 // to `run('open "..."')`, so this is what keeps that shell string injection-safe.
 const _todoInlineRe = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)]+)\)|@(\p{L}[\p{L}\p{N}_]*)|https?:\/\/github\.com\/[\w.-]+\/([\w.-]+)\/pull\/(\d+)|https?:\/\/linear\.app\/[\w.-]+\/issue\/([A-Z0-9]+-\d+)(?:\/[\w.-]*)?/gu;
+// A bare comma between two @user chips becomes a plain space: the chips already read as
+// separate tokens, and the chip padding left the comma floating away from its name.
+const _todoChipSepRe = /^\s*,\s*$/;
 const renderTodoText = (text) => {
   const parts = [];
   let last = 0;
+  let prevMention = false;
   let m;
   while ((m = _todoInlineRe.exec(text)) !== null) {
-    if (m.index > last) parts.push(text.slice(last, m.index));
+    if (m.index > last) {
+      const gap = text.slice(last, m.index);
+      parts.push(prevMention && m[4] !== undefined && _todoChipSepRe.test(gap) ? " " : gap);
+    }
+    prevMention = m[4] !== undefined;
     if (m[1] !== undefined) {
       parts.push(<strong key={parts.length} style={{ fontWeight: 700 }}>{m[1]}</strong>);
     } else if (m[4] !== undefined) {
@@ -218,7 +226,7 @@ const _useTodoSort = (onMove) => {
     dragging: drag && drag.id,
     register: (id, meta) => (el) => { if (el) zones.current[id] = { el, ...meta }; else delete zones.current[id]; },
     start: (e, meta) => {
-      if (e.button !== 0 || e.target.closest("a, input")) return;
+      if (e.button !== 0 || e.target.closest("a, input, .todo-check")) return;
       g.current = { ...meta, x0: e.clientX, y0: e.clientY, active: false, target: null };
     },
     mark: (id, edge) => (drag && drag.target && drag.target.id === id && drag.target.edge === edge
@@ -257,18 +265,29 @@ const _todoS = {
     maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
     boxShadow: "0 4px 12px rgba(0,0,0,0.45)",
   },
-  idx: { color: "rgba(255,255,255,0.4)", flexShrink: 0, fontVariantNumeric: "tabular-nums" },
+  idx: { color: "rgba(255,255,255,0.28)", flexShrink: 0, fontVariantNumeric: "tabular-nums" },
+  // Kept in the layout but hidden on rows that already show a checkbox or ◐, so the
+  // indent alone carries the hierarchy and the box does not shift left.
   childMark: { color: "rgba(255,255,255,0.35)", flexShrink: 0 },
-  checkbox: { margin: "2px 0 0", flexShrink: 0, accentColor: "#6eb5ff", width: "11px", height: "11px", cursor: "pointer" },
+  // Drawn instead of a native checkbox, whose solid white square outshone the text.
+  checkbox: {
+    margin: "2px 0 0", flexShrink: 0, width: "11px", height: "11px", boxSizing: "border-box",
+    border: "1px solid rgba(255,255,255,0.4)", borderRadius: "3px", cursor: "pointer",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontSize: "9px", lineHeight: 1, color: "#0b1a2a", fontWeight: 700,
+  },
+  checkboxOn: { background: "#6eb5ff", borderColor: "#6eb5ff" },
   text: { wordBreak: "break-word", minWidth: 0 },
   done: { textDecoration: "line-through", color: "rgba(255,255,255,0.4)" },
-  // In-progress row: amber bar and tint. The negative margin cancels the padding so the
-  // row's text stays aligned with its siblings.
-  active: { background: "rgba(255,214,10,0.14)", boxShadow: "inset 2px 0 0 #ffd60a", borderRadius: "3px", padding: "0 2px 0 4px" },
+  // An in-progress item and its children share one amber bar down their left edge; only
+  // the head row is tinted. The negative margin cancels the head's padding so its text
+  // stays aligned with its siblings.
+  activeSpan: { boxShadow: "inset 2px 0 0 #ffd60a", borderRadius: "3px" },
+  activeHead: { background: "rgba(255,214,10,0.14)", borderRadius: "3px", padding: "0 2px 0 4px" },
   activeText: { color: "#fff" },
   activeMark: { color: "#ffd60a", flexShrink: 0, width: "11px", fontSize: "11px", lineHeight: "1.35", cursor: "pointer", textAlign: "center" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" },
-  toggle: { fontSize: "10px", fontWeight: 600, letterSpacing: "0.5px", color: "rgba(255,255,255,0.45)", cursor: "pointer", padding: "0 2px" },
+  toggle: { fontSize: "10px", fontWeight: 600, letterSpacing: "0.5px", color: "rgba(255,255,255,0.45)", cursor: "pointer", padding: "0 2px", borderRadius: "3px" },
   divider: { height: "1px", background: "rgba(255,255,255,0.08)", margin: "4px 0" },
 };
 
@@ -338,33 +357,60 @@ const _todoNumber = (items) => {
   }));
 };
 
-const _todoRow = (item, key, onToggle) => (
-  <div key={key} style={{
-    ..._todoS.row,
-    ...(item.active ? _todoS.active : null),
-    marginLeft: `${item.depth * 10 - (item.active ? 4 : 0)}px`,
-  }}>
-    {item.label !== null
-      ? <span style={_todoS.idx}>{item.label}</span>
-      : <span style={_todoS.childMark}>◦</span>}
-    {item.active ? (
-      <span
-        title="In progress: click to mark done"
-        onClick={(e) => { e.stopPropagation(); onToggle(item); }}
-        style={_todoS.activeMark}
-      >◐</span>
-    ) : item.checked !== null && (
-      <input
-        type="checkbox"
-        checked={item.checked}
-        onChange={() => onToggle(item)}
-        onClick={(e) => e.stopPropagation()}
-        style={_todoS.checkbox}
-      />
-    )}
-    <span style={{ ..._todoS.text, ...(item.checked ? _todoS.done : null), ...(item.active ? _todoS.activeText : null) }}>{renderTodoText(item.text)}</span>
-  </div>
-);
+// `span` is set for rows inside an in-progress block: `base` is the depth of the block's
+// head (the wrapper already sits at that indent), `head` marks the tinted first row.
+const _TODO_INDENT = 20; // px per nesting level
+const _todoRow = (item, key, onToggle, span) => {
+  const hasBox = item.active || item.checked !== null;
+  const indent = span
+    ? (span.head ? 0 : (item.depth - span.base) * _TODO_INDENT + 4)
+    : item.depth * _TODO_INDENT;
+  return (
+    <div key={key} style={{
+      ..._todoS.row,
+      ...(span && span.head ? _todoS.activeHead : null),
+      marginLeft: `${indent}px`,
+    }}>
+      {item.label !== null
+        ? <span style={_todoS.idx}>{item.label}</span>
+        : <span style={{ ..._todoS.childMark, ...(hasBox ? { visibility: "hidden" } : null) }}>◦</span>}
+      {item.active ? (
+        <span
+          title="In progress: click to mark done"
+          onClick={(e) => { e.stopPropagation(); onToggle(item); }}
+          style={_todoS.activeMark}
+        >◐</span>
+      ) : item.checked !== null && (
+        <span
+          className="todo-check"
+          onClick={(e) => { e.stopPropagation(); onToggle(item); }}
+          style={{ ..._todoS.checkbox, ...(item.checked ? _todoS.checkboxOn : null) }}
+        >{item.checked ? "✓" : null}</span>
+      )}
+      <span style={{ ..._todoS.text, ...(item.checked ? _todoS.done : null), ...(item.active ? _todoS.activeText : null) }}>{renderTodoText(item.text)}</span>
+    </div>
+  );
+};
+
+// Render a run of rows, wrapping each in-progress item and its descendants in one block
+// with a single amber bar, so nested [o] items do not stack their own bars and tints.
+const _todoRows = (items, onToggle) => {
+  const out = [];
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (!item.active) { out.push(_todoRow(item, i, onToggle, null)); continue; }
+    let end = i + 1;
+    while (end < items.length && items[end].depth > item.depth) end++;
+    const base = item.depth;
+    out.push(
+      <div key={i} style={{ ..._todoS.activeSpan, marginLeft: `${base * _TODO_INDENT - 4}px` }}>
+        {items.slice(i, end).map((it, n) => _todoRow(it, n, onToggle, { base, head: n === 0 }))}
+      </div>
+    );
+    i = end - 1;
+  }
+  return out;
+};
 
 // Render one tinted block per section: an optional title header followed by its
 // numbered list (numbering restarts per section). Both levels are drag zones: the
@@ -390,7 +436,7 @@ const _todoRenderSections = (sections, keyPrefix, onToggle, sort) =>
         {_todoSpanGroups(_todoNumber(sec.items)).map((group) => {
           const head = group[0];
           const id = `${secId}-i${head.srcLine}`;
-          const rows = group.map((item, i) => _todoRow(item, i, onToggle));
+          const rows = _todoRows(group, onToggle);
           if (!head.bullet) return <div key={id}>{rows}</div>;
           const meta = { kind: "item", startLine: head.srcLine, endLine: head.spanEnd };
           return (
@@ -423,9 +469,24 @@ const _todoFilterDone = (items) => {
   return out;
 };
 
+// Keep only in-progress items plus their ancestors, so each one keeps its context.
+const _todoFilterActive = (items) => {
+  const keep = items.map(() => false);
+  items.forEach((item, i) => {
+    if (!item.active) return;
+    keep[i] = true;
+    let d = item.depth;
+    for (let j = i - 1; j >= 0 && d > 0; j--) {
+      if (items[j].depth < d) { keep[j] = true; d = items[j].depth; }
+    }
+  });
+  return items.filter((_, i) => keep[i]);
+};
+
 const Todo = ({ output, refresh }) => {
   const [showLow, setShowLow] = React.useState(false);
   const [hideDone, setHideDone] = React.useState(false);
+  const [onlyActive, setOnlyActive] = React.useState(false);
   const text = (output || "").trim();
 
   // Apply a drop by rewriting ~/TODO.md. The card renders cached output (up to ~10s
@@ -456,15 +517,27 @@ const Todo = ({ output, refresh }) => {
   // Counts the low-prio part too, so in-progress work there is not hidden by the collapse.
   const activeCount = allItems.filter(i => i.active).length;
 
-  // Drop done items (and their descendants) when hideDone is on; keep a section if it
-  // still has items, or was only ever a title.
+  // The in-progress filter only applies while there is something in progress: its toggle
+  // disappears at zero, and an empty list with no visible way back would look broken.
+  const filterActive = onlyActive && activeCount > 0;
+
+  // Drop done items (and their descendants) when hideDone is on, and everything that is
+  // not in progress (or an ancestor of it) under the in-progress filter. Keep a section
+  // if it still has items, or was only ever a title (unless filtering to in-progress).
   const prep = (sections) => sections
-    .map(sec => ({ ...sec, items: hideDone ? _todoFilterDone(sec.items) : sec.items, had: sec.items.length }))
-    .filter(sec => sec.items.length || sec.had === 0);
+    .map(sec => {
+      let items = hideDone ? _todoFilterDone(sec.items) : sec.items;
+      if (filterActive) items = _todoFilterActive(items);
+      return { ...sec, items, had: sec.items.length };
+    })
+    .filter(sec => sec.items.length || (sec.had === 0 && !filterActive));
 
   const visiblePrepped = prep(visibleSections);
   const lowPrepped = prep(lowSections);
-  const lowCount = lowPrepped.flatMap(sec => sec.items).filter(i => i.depth === 0).length;
+  // Counted before the in-progress filter, so the toggle keeps its size while filtering.
+  const lowCount = lowSections
+    .flatMap(sec => (hideDone ? _todoFilterDone(sec.items) : sec.items))
+    .filter(i => i.depth === 0).length;
 
   // [ ] → [x], [o] → [x], [x] → [ ].
   const toggleItem = (item) => {
@@ -478,12 +551,18 @@ const Todo = ({ output, refresh }) => {
         <div className="clickable" style={{ ...s.label, cursor: "pointer", marginBottom: 0 }} onClick={refresh}>TODO</div>
         <div style={{ display: "flex", gap: "6px" }}>
           {activeCount > 0 && (
-            <div style={{ ..._todoS.toggle, color: "#ffd60a", cursor: "default" }} title="In progress">● {activeCount}</div>
+            <div
+              className="clickable"
+              style={{ ..._todoS.toggle, color: "#ffd60a", ...(filterActive && { background: "rgba(255,214,10,0.18)" }) }}
+              title={filterActive ? `${activeCount} in progress: click to show all` : `${activeCount} in progress: click to show only these`}
+              onClick={(e) => { e.stopPropagation(); setOnlyActive(v => !v); }}
+            >● {activeCount}</div>
           )}
           {doneCount > 0 && (
             <div
               className="clickable"
               style={{ ..._todoS.toggle, ...(hideDone && { color: "#6eb5ff" }) }}
+              title={hideDone ? `${doneCount} done: click to show` : `${doneCount} done: click to hide`}
               onClick={(e) => { e.stopPropagation(); setHideDone(v => !v); }}
             >✓ {doneCount}</div>
           )}
@@ -491,6 +570,7 @@ const Todo = ({ output, refresh }) => {
             <div
               className="clickable"
               style={_todoS.toggle}
+              title={showLow ? `${lowCount} low-priority items: click to hide` : `${lowCount} low-priority items: click to show`}
               onClick={(e) => { e.stopPropagation(); setShowLow(v => !v); }}
             >{showLow ? `− ${lowCount}` : `+ ${lowCount}`}</div>
           )}
@@ -498,7 +578,7 @@ const Todo = ({ output, refresh }) => {
       </div>
       <div style={_todoS.list} onClick={() => { if (!sort.wasDrag()) run(_todoOpenCmd); }}>
         {_todoRenderSections(visiblePrepped, "v", toggleItem, sort)}
-        {showLow && lowPrepped.length > 0 && (
+        {(showLow || filterActive) && lowPrepped.length > 0 && (
           <React.Fragment>
             <div style={_todoS.divider} />
             {_todoRenderSections(lowPrepped, "low", toggleItem, sort)}

@@ -51,10 +51,11 @@ const _todoMoveSection = (lines, from, to, before) => {
 // highlighted. The mark is the item's level: `o` is standard (0), `1` urgent, `2` critical.
 const _todoCheckRe = /^(\s*)-\s*\[([ xXoO12])\]\s*(.*)$/;
 const _todoMarkLevel = { o: 0, 1: 1, 2: 2 };
-// Bar, tint and marker color per level: green, yellow, red.
+// Bar, tint and marker color per level: yellow, orange, red. One heat scale that also
+// darkens with each level, so the levels still differ for red/green color blindness.
 const _todoLevelColors = [
-  { fg: "#30d158", tint: "rgba(48,209,88,0.14)" },
   { fg: "#ffd60a", tint: "rgba(255,214,10,0.14)" },
+  { fg: "#ff9f0a", tint: "rgba(255,159,10,0.14)" },
   { fg: "#ff453a", tint: "rgba(255,69,58,0.14)" },
 ];
 const _todoLevelNames = ["standard", "urgent", "critical"];
@@ -408,7 +409,7 @@ const _todoRow = (item, key, onToggle, span) => {
 // Render a run of rows, wrapping each in-progress item and its descendants in one block
 // with a single bar, so nested in-progress items do not stack their own bars and tints.
 // The block takes the highest level inside it, so a critical child of a standard item
-// is not hidden behind a green bar.
+// is not hidden behind a yellow bar.
 const _todoRows = (items, onToggle) => {
   const out = [];
   for (let i = 0; i < items.length; i++) {

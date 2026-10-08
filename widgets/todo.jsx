@@ -47,8 +47,19 @@ const _todoMoveSection = (lines, from, to, before) => {
   return rest;
 };
 
-// `[o]` marks the item being worked on right now: unchecked, but rendered highlighted.
-const _todoCheckRe = /^(\s*)-\s*\[([ xXoO])\]\s*(.*)$/;
+// `[o]`, `[1]` and `[2]` mark items being worked on right now: unchecked, but rendered
+// highlighted. The mark is the item's level: `o` is standard (0), `1` urgent, `2` critical.
+const _todoCheckRe = /^(\s*)-\s*\[([ xXoO12])\]\s*(.*)$/;
+const _todoMarkLevel = { o: 0, 1: 1, 2: 2 };
+// Bar, tint and marker color per level: green, yellow, red.
+const _todoLevelColors = [
+  { fg: "#30d158", tint: "rgba(48,209,88,0.14)" },
+  { fg: "#ffd60a", tint: "rgba(255,214,10,0.14)" },
+  { fg: "#ff453a", tint: "rgba(255,69,58,0.14)" },
+];
+const _todoLevelNames = ["standard", "urgent", "critical"];
+// Highest level among the in-progress items in `items`. Callers pass at least one.
+const _todoMaxLevel = (items) => Math.max(...items.filter(i => i.active).map(i => i.level));
 const _todoBulletRe = /^(\s*)-\s+(.*)$/;
 // `bullet` marks real `- ` list lines. Plain text lines (notes in the low-prio block)
 // also render as rows, but they are not draggable: a section takes its title from a
@@ -58,11 +69,12 @@ const parseTodoLine = (line) => {
   const c = line.match(_todoCheckRe);
   if (c) {
     const mark = c[2].toLowerCase();
-    return { depth: Math.floor(c[1].length / 2), checked: mark === "x", active: mark === "o", text: c[3], bullet: true };
+    const level = mark in _todoMarkLevel ? _todoMarkLevel[mark] : null;
+    return { depth: Math.floor(c[1].length / 2), checked: mark === "x", active: level !== null, level, text: c[3], bullet: true };
   }
   const b = line.match(_todoBulletRe);
-  if (b) return { depth: Math.floor(b[1].length / 2), checked: null, active: false, text: b[2], bullet: true };
-  return { depth: 0, checked: null, active: false, text: line.trim(), bullet: false };
+  if (b) return { depth: Math.floor(b[1].length / 2), checked: null, active: false, level: null, text: b[2], bullet: true };
+  return { depth: 0, checked: null, active: false, level: null, text: line.trim(), bullet: false };
 };
 
 // Per-user chip colors. Every distinct @user gets its own hue: we collect all
@@ -279,13 +291,13 @@ const _todoS = {
   checkboxOn: { background: "#6eb5ff", borderColor: "#6eb5ff" },
   text: { wordBreak: "break-word", minWidth: 0 },
   done: { textDecoration: "line-through", color: "rgba(255,255,255,0.4)" },
-  // An in-progress item and its children share one amber bar down their left edge; only
-  // the head row is tinted. The negative margin cancels the head's padding so its text
-  // stays aligned with its siblings.
-  activeSpan: { boxShadow: "inset 2px 0 0 #ffd60a", borderRadius: "3px" },
-  activeHead: { background: "rgba(255,214,10,0.14)", borderRadius: "3px", padding: "0 2px 0 4px" },
+  // An in-progress item and its children share one bar down their left edge; only the
+  // head row is tinted. Both take the block's level color (see _todoRows). The negative
+  // margin cancels the head's padding so its text stays aligned with its siblings.
+  activeSpan: { borderRadius: "3px" },
+  activeHead: { borderRadius: "3px", padding: "0 2px 0 4px" },
   activeText: { color: "#fff" },
-  activeMark: { color: "#ffd60a", flexShrink: 0, width: "11px", fontSize: "11px", lineHeight: "1.35", cursor: "pointer", textAlign: "center" },
+  activeMark: { flexShrink: 0, width: "11px", fontSize: "11px", lineHeight: "1.35", cursor: "pointer", textAlign: "center" },
   header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" },
   toggle: { fontSize: "10px", fontWeight: 600, letterSpacing: "0.5px", color: "rgba(255,255,255,0.45)", cursor: "pointer", padding: "0 2px", borderRadius: "3px" },
   divider: { height: "1px", background: "rgba(255,255,255,0.08)", margin: "4px 0" },
@@ -358,7 +370,8 @@ const _todoNumber = (items) => {
 };
 
 // `span` is set for rows inside an in-progress block: `base` is the depth of the block's
-// head (the wrapper already sits at that indent), `head` marks the tinted first row.
+// head (the wrapper already sits at that indent), `head` marks the tinted first row, and
+// `tint` is the block's level tint. Each ◐ keeps its own item's level color.
 const _TODO_INDENT = 20; // px per nesting level
 const _todoRow = (item, key, onToggle, span) => {
   const hasBox = item.active || item.checked !== null;
@@ -368,7 +381,7 @@ const _todoRow = (item, key, onToggle, span) => {
   return (
     <div key={key} style={{
       ..._todoS.row,
-      ...(span && span.head ? _todoS.activeHead : null),
+      ...(span && span.head ? { ..._todoS.activeHead, background: span.tint } : null),
       marginLeft: `${indent}px`,
     }}>
       {item.label !== null
@@ -376,9 +389,9 @@ const _todoRow = (item, key, onToggle, span) => {
         : <span style={{ ..._todoS.childMark, ...(hasBox ? { visibility: "hidden" } : null) }}>◦</span>}
       {item.active ? (
         <span
-          title="In progress: click to mark done"
+          title={`In progress (${_todoLevelNames[item.level]}): click to mark done`}
           onClick={(e) => { e.stopPropagation(); onToggle(item); }}
-          style={_todoS.activeMark}
+          style={{ ..._todoS.activeMark, color: _todoLevelColors[item.level].fg }}
         >◐</span>
       ) : item.checked !== null && (
         <span
@@ -393,7 +406,9 @@ const _todoRow = (item, key, onToggle, span) => {
 };
 
 // Render a run of rows, wrapping each in-progress item and its descendants in one block
-// with a single amber bar, so nested [o] items do not stack their own bars and tints.
+// with a single bar, so nested in-progress items do not stack their own bars and tints.
+// The block takes the highest level inside it, so a critical child of a standard item
+// is not hidden behind a green bar.
 const _todoRows = (items, onToggle) => {
   const out = [];
   for (let i = 0; i < items.length; i++) {
@@ -401,10 +416,12 @@ const _todoRows = (items, onToggle) => {
     if (!item.active) { out.push(_todoRow(item, i, onToggle, null)); continue; }
     let end = i + 1;
     while (end < items.length && items[end].depth > item.depth) end++;
+    const block = items.slice(i, end);
+    const color = _todoLevelColors[_todoMaxLevel(block)];
     const base = item.depth;
     out.push(
-      <div key={i} style={{ ..._todoS.activeSpan, marginLeft: `${base * _TODO_INDENT - 4}px` }}>
-        {items.slice(i, end).map((it, n) => _todoRow(it, n, onToggle, { base, head: n === 0 }))}
+      <div key={i} style={{ ..._todoS.activeSpan, boxShadow: `inset 2px 0 0 ${color.fg}`, marginLeft: `${base * _TODO_INDENT - 4}px` }}>
+        {block.map((it, n) => _todoRow(it, n, onToggle, { base, head: n === 0, tint: color.tint }))}
       </div>
     );
     i = end - 1;
@@ -516,6 +533,8 @@ const Todo = ({ output, refresh }) => {
   const doneCount = allItems.filter(i => i.checked === true).length;
   // Counts the low-prio part too, so in-progress work there is not hidden by the collapse.
   const activeCount = allItems.filter(i => i.active).length;
+  // The counter takes the color of the highest level in progress anywhere in the file.
+  const activeColor = activeCount > 0 ? _todoLevelColors[_todoMaxLevel(allItems)] : null;
 
   // The in-progress filter only applies while there is something in progress: its toggle
   // disappears at zero, and an empty list with no visible way back would look broken.
@@ -539,10 +558,10 @@ const Todo = ({ output, refresh }) => {
     .flatMap(sec => (hideDone ? _todoFilterDone(sec.items) : sec.items))
     .filter(i => i.depth === 0).length;
 
-  // [ ] → [x], [o] → [x], [x] → [ ].
+  // [ ] → [x], [o] / [1] / [2] → [x], [x] → [ ].
   const toggleItem = (item) => {
     const newChar = item.checked ? " " : "x";
-    run(`sed -i '' '${item.srcLine}s/\\[[xXoO ]\\]/[${newChar}]/' ~/TODO.md`).then(refresh);
+    run(`sed -i '' '${item.srcLine}s/\\[[xXoO12 ]\\]/[${newChar}]/' ~/TODO.md`).then(refresh);
   };
 
   return (
@@ -553,7 +572,7 @@ const Todo = ({ output, refresh }) => {
           {activeCount > 0 && (
             <div
               className="clickable"
-              style={{ ..._todoS.toggle, color: "#ffd60a", ...(filterActive && { background: "rgba(255,214,10,0.18)" }) }}
+              style={{ ..._todoS.toggle, color: activeColor.fg, ...(filterActive && { background: activeColor.tint }) }}
               title={filterActive ? `${activeCount} in progress: click to show all` : `${activeCount} in progress: click to show only these`}
               onClick={(e) => { e.stopPropagation(); setOnlyActive(v => !v); }}
             >● {activeCount}</div>

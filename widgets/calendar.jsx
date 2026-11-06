@@ -59,8 +59,8 @@ const _calS = {
   dateDim: { color: "rgba(255,255,255,0.35)" },
   today: { color: "#ff453a" },
   sep: { borderTop: "1px solid rgba(255,255,255,0.08)", margin: "8px 0" },
-  // Greyed title is the only cue that the next meeting is not today.
-  laterTitle: { color: "rgba(255,255,255,0.5)" },
+  // Greyed title, start time and countdown are the only cue that the next meeting is not today.
+  later: { color: "rgba(255,255,255,0.5)" },
   meetingSoon: { margin: "0 -4px", padding: "6px 4px", border: "2px solid #ff9f0a", borderRadius: "8px" },
   meetingUrgent: { margin: "0 -4px", padding: "6px 4px", border: "2px solid #ff453a", borderRadius: "8px" },
   meetingImminent: { margin: "0 -4px", padding: "6px 4px", border: "2px solid #ff453a", borderRadius: "8px", animation: "urgentPulse 1.4s ease-out infinite" },
@@ -243,14 +243,14 @@ const NextMeetingBlock = ({ allEvents, output }) => {
       <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
         <div style={{
           ...s.title, marginBottom: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          ...(isToday ? null : _calS.laterTitle),
+          ...(isToday ? null : _calS.later),
         }}>{next.summary}</div>
         <MeetingLinkIcon event={next} />
       </div>
       <div style={s.meta}>
-        <span style={{ color: tr.color }}>{_formatTime(start)}</span>
+        <span style={isToday ? { color: tr.color } : _calS.later}>{_formatTime(start)}</span>
         <span style={s.dot}>&middot;</span>
-        <span style={{ ...s.remaining, color: tr.color }}>{tr.text}</span>
+        <span style={{ ...s.remaining, ...(isToday ? { color: tr.color } : _calS.later) }}>{tr.text}</span>
       </div>
       {after && (
         <div style={s.meta}>

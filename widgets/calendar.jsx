@@ -31,6 +31,7 @@ const _calS = {
   hour: { position: "absolute", top: 0, fontSize: "8px", fontWeight: 600, lineHeight: "10px", color: "#40e0d0", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" },
   hourPast: { color: "#156e66" },
   barFill: { position: "absolute", right: 0, top: 0, bottom: 0, background: "#ff453a", borderRadius: "2px", transition: "width 0.3s ease-out" },
+  barFillFree: { background: "#30d158" },
   // Painted after the fill so a meeting stays visible over the red remainder.
   // minWidth keeps a 15-minute call from collapsing to nothing on a ~130px bar.
   barMeeting: { position: "absolute", top: 0, bottom: 0, minWidth: "2px", background: "#40e0d0", borderRadius: "1px" },
@@ -58,6 +59,8 @@ const _calS = {
   },
   dateDim: { color: "rgba(255,255,255,0.35)" },
   today: { color: "#ff453a" },
+  // Replaces every red in the card once the rest of the workday has no meetings left.
+  todayFree: { color: "#30d158" },
   sep: { borderTop: "1px solid rgba(255,255,255,0.08)", margin: "8px 0" },
   // Greyed title, start time and countdown are the only cue that the next meeting is not today.
   later: { color: "rgba(255,255,255,0.5)" },
@@ -265,20 +268,20 @@ const NextMeetingBlock = ({ allEvents, output }) => {
 
 // count === null means "outside the fetched window", so no number is shown at all;
 // 0 renders as a faint dot so a free day still reads as data, not as missing data.
-const DayCell = ({ date, count, isToday }) => {
+const DayCell = ({ date, count, isToday, todayStyle }) => {
   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
   return (
     <div style={count === null ? _calS.dayCellPlain : _calS.dayCell}>
       <span style={{
         ..._calS.date,
         ...(isWeekend && !isToday ? _calS.dateDim : null),
-        ...(isToday ? _calS.today : null),
+        ...(isToday ? todayStyle : null),
       }}>{date.getDate()}</span>
       {count !== null && (
         <span style={{
           ..._calS.count,
           ...(count === 0 ? _calS.countFree : null),
-          ...(isToday ? _calS.today : null),
+          ...(isToday ? todayStyle : null),
         }}>{count === 0 ? "·" : count}</span>
       )}
     </div>
@@ -328,13 +331,18 @@ const Calendar = ({ output, refresh }) => {
     ? "done"
     : `${Math.floor(minsLeft / 60)}h ${minsLeft % 60}m left`;
   const marks = _meetingMarks(events, todayStr, WORK_START, WORK_END, mins);
+  // Judged off the marks so the color agrees with the bar: green only when no segment
+  // still ahead of or under the current time is drawn on it. No events means the fetch
+  // failed, and that must not read as a free day.
+  const freeRestOfDay = events !== null && marks.every((m) => m.past);
+  const todayStyle = freeRestOfDay ? _calS.todayFree : _calS.today;
   const markLabels = _markLabels(marks);
   const mask = _hourMask(WORK_START, WORK_END);
 
   return (
     <div>
       <div style={_calS.grid} onClick={() => setExpanded(e => !e)}>
-        <div style={_calS.month} onClick={(e) => { e.stopPropagation(); refresh(); }}>{monthName}</div>
+        <div style={{ ..._calS.month, ...(freeRestOfDay ? _calS.todayFree : null) }} onClick={(e) => { e.stopPropagation(); refresh(); }}>{monthName}</div>
         <div style={{ flex: 1, cursor: "pointer" }}>
           <div style={_calS.row}>
             {days.map((d, i) => {
@@ -345,7 +353,7 @@ const Calendar = ({ output, refresh }) => {
                   <span style={{
                     ..._calS.label,
                     ...(isWeekend && !isToday ? _calS.labelDim : null),
-                    ...(isToday ? _calS.today : null),
+                    ...(isToday ? todayStyle : null),
                   }}>{dayLetters[d.getDay()]}</span>
                 </div>
               );
@@ -357,6 +365,7 @@ const Calendar = ({ output, refresh }) => {
                 key={i}
                 date={d}
                 isToday={d.toDateString() === todayStr}
+                todayStyle={todayStyle}
                 count={counts ? counts[d.toDateString()] || 0 : null}
               />
             ))}
@@ -376,7 +385,7 @@ const Calendar = ({ output, refresh }) => {
         <div style={_calS.barRow}>
           <div style={_calS.barCol}>
             <div style={{ ..._calS.bar, maskImage: mask, WebkitMaskImage: mask }} title={tooltip}>
-              <div style={{ ..._calS.barFill, width: `${remaining * 100}%` }} />
+              <div style={{ ..._calS.barFill, ...(freeRestOfDay ? _calS.barFillFree : null), width: `${remaining * 100}%` }} />
               {marks.map((m, i) => (
                 <div key={i} title={m.title} style={{ ..._calS.barMeeting, ...(m.past ? _calS.barMeetingPast : null), left: `${m.left}%`, width: `${m.width}%` }} />
               ))}
@@ -396,7 +405,7 @@ const Calendar = ({ output, refresh }) => {
               </div>
             )}
           </div>
-          {minsLeft > 0 && minsLeft < 60 && <div style={_calS.minsLeft}>{minsLeft}m</div>}
+          {minsLeft > 0 && minsLeft < 60 && <div style={{ ..._calS.minsLeft, ...(freeRestOfDay ? _calS.todayFree : null) }}>{minsLeft}m</div>}
         </div>
       )}
       <NextMeetingBlock allEvents={events} output={output} />

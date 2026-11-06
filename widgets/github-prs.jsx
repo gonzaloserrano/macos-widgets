@@ -16,16 +16,18 @@ def run_gql(gql):
 def ci(n):
     try: return n["commits"]["nodes"][0]["commit"]["statusCheckRollup"]["state"]
     except: return None
+def tdcr(n):
+    return sum(1 for c in n.get("comments",{}).get("nodes",[]) if c.get("body","").strip().startswith("/td-code-review"))
 def row(n):
-    return {"num":n["number"],"title":n["title"],"repo":n["repository"]["name"],"owner":n["repository"]["owner"]["login"],"url":n["url"],"created":n["createdAt"],"author":n.get("author",{}).get("login",""),"review":n.get("reviewDecision"),"ci":ci(n)}
+    return {"num":n["number"],"title":n["title"],"repo":n["repository"]["name"],"owner":n["repository"]["owner"]["login"],"url":n["url"],"created":n["createdAt"],"author":n.get("author",{}).get("login",""),"review":n.get("reviewDecision"),"ci":ci(n),"tdcr":tdcr(n)}
 def query(q):
-    gql = "{all:search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:25){issueCount nodes{...on PullRequest{number title url createdAt repository{name owner{login}}reviewDecision commits(last:1){nodes{commit{statusCheckRollup{state}}}}}}} work:search(query:" + chr(34) + q + " org:${_ghWorkOrg}" + chr(34) + ",type:ISSUE,first:1){issueCount}}"
+    gql = "{all:search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:25){issueCount nodes{...on PullRequest{number title url createdAt repository{name owner{login}}reviewDecision commits(last:1){nodes{commit{statusCheckRollup{state}}}} comments(last:100){nodes{body}}}}} work:search(query:" + chr(34) + q + " org:${_ghWorkOrg}" + chr(34) + ",type:ISSUE,first:1){issueCount}}"
     d = run_gql(gql)
     if not d: return {"total":0,"workTotal":0,"prs":[]}
     s = d["data"]["all"]
-    return {"total":s["issueCount"],"workTotal":d["data"]["work"]["issueCount"],"prs":[{"num":n["number"],"title":n["title"],"repo":n["repository"]["name"],"owner":n["repository"]["owner"]["login"],"url":n["url"],"created":n["createdAt"],"review":n.get("reviewDecision"),"ci":ci(n)} for n in s["nodes"]]}
+    return {"total":s["issueCount"],"workTotal":d["data"]["work"]["issueCount"],"prs":[{"num":n["number"],"title":n["title"],"repo":n["repository"]["name"],"owner":n["repository"]["owner"]["login"],"url":n["url"],"created":n["createdAt"],"review":n.get("reviewDecision"),"ci":ci(n),"tdcr":tdcr(n)} for n in s["nodes"]]}
 def query_reviews(q):
-    gql = "{viewer{login} search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:25){issueCount nodes{...on PullRequest{number title url createdAt author{login} repository{name owner{login} isArchived}reviewDecision commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}} reviews(last:50){nodes{author{login}submittedAt}} comments(last:50){nodes{author{login}createdAt}}}}}}"
+    gql = "{viewer{login} search(query:" + chr(34) + q + chr(34) + ",type:ISSUE,first:25){issueCount nodes{...on PullRequest{number title url createdAt author{login} repository{name owner{login} isArchived}reviewDecision commits(last:1){nodes{commit{committedDate statusCheckRollup{state}}}} reviews(last:50){nodes{author{login}submittedAt}} comments(last:100){nodes{author{login}createdAt body}}}}}}"
     d = run_gql(gql)
     if not d: return {"total":0,"prs":[]}
     me = d["data"]["viewer"]["login"]
@@ -47,7 +49,7 @@ def query_reviews(q):
         prs.append(row(n))
     return {"total":len(prs),"prs":prs}
 def query_commented(q, skip):
-    gql = "{search(query:" + chr(34) + q + chr(34) + ",type:ISSUE_ADVANCED,first:25){nodes{...on PullRequest{number title url createdAt author{login} repository{name owner{login} isArchived}reviewDecision commits(last:1){nodes{commit{statusCheckRollup{state}}}}}}}}"
+    gql = "{search(query:" + chr(34) + q + chr(34) + ",type:ISSUE_ADVANCED,first:25){nodes{...on PullRequest{number title url createdAt author{login} repository{name owner{login} isArchived}reviewDecision commits(last:1){nodes{commit{statusCheckRollup{state}}}} comments(last:100){nodes{body}}}}}}"
     d = run_gql(gql)
     if not d: return {"total":0,"prs":[]}
     prs = [row(n) for n in d["data"]["search"]["nodes"] if n["url"] not in skip and not n["repository"]["isArchived"]]
@@ -121,6 +123,16 @@ const _ghS = {
     padding: "2px 5px", borderRadius: "4px", textDecoration: "none", whiteSpace: "nowrap",
     borderBottomWidth: "2px", borderBottomStyle: "solid",
     transition: "opacity 0.12s, filter 0.12s",
+    position: "relative",
+  },
+  // How many times /td-code-review was asked on the PR, perched on the chip's top-right
+  // corner so it costs no width in the grid.
+  tdcr: {
+    position: "absolute", top: "-5px", right: "-5px",
+    minWidth: "11px", height: "11px", padding: "0 2px", boxSizing: "border-box",
+    borderRadius: "6px", background: "#e5484d", color: "#fff",
+    fontSize: "8px", fontWeight: 700, lineHeight: "11px", textAlign: "center",
+    fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
   },
   tally: { fontSize: "10px", marginTop: "3px", lineHeight: "13px", color: "rgba(255,255,255,0.45)" },
   // Exactly two lines, always: a title wraps onto the second and is cut there, so the card
@@ -238,7 +250,7 @@ const GithubPRs = ({ output, refresh }) => {
               ...(faded(pr, block) ? _ghS.faded : null),
             }}
             onMouseEnter={() => setHover({ url: pr.url, labels })}
-          >{approved(pr) ? "✓" : ""}{pr.num}</a>
+          >{approved(pr) ? "✓" : ""}{pr.num}{pr.tdcr > 0 && <span style={_ghS.tdcr}>{pr.tdcr}</span>}</a>
         );
       })}
       {total > prs.length && (
